@@ -1,22 +1,25 @@
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
-	"path/filepath"
+	"os"
+	"strings"
 
 	"github.com/766b/mobi"
 )
 
 func writeMobi() {
-	m, err := mobi.NewWriter("output.mobi")
+	inpfiles, titles := parseTitlesFile()
+	os.Mkdir(tmpdir, 0750)
+
+	m, err := mobi.NewWriter(tmpdir + "/output.mobi")
 	if err != nil {
 		panic(err)
 	}
 
 	m.Title("Book Title")
-	// m.Compression(mobi.CompressionNone) // LZ77 compression is also possible using  mobi.CompressionPalmDoc
-	m.Compression(mobi.CompressionPalmDoc)
+	m.Compression(mobi.CompressionNone) // LZ77 compression is also possible using  mobi.CompressionPalmDoc
+	// m.Compression(mobi.CompressionPalmDoc)
 
 	// Add cover image
 	// m.AddCover("data/cover.jpg", "data/thumbnail.jpg")
@@ -26,33 +29,31 @@ func writeMobi() {
 	m.NewExthRecord(mobi.EXTH_AUTHOR, "Book Author Name")
 	// See exth.go for additional EXTH record IDs
 
-	// TODO title
-	txtfiles, err := filepath.Glob("*html")
-	chkerr(err)
-	for _, txtfile := range txtfiles {
-		fmt.Println("Adding ", txtfile)
-		b, err := ioutil.ReadFile(txtfile)
-		chkerr(err)
-
-		// b, heading := txtToHtml(b)
-		m.NewChapter(txtfile, b)
+	for _, fname := range inpfiles {
+		out("Adding ", fname, titles[fname])
+		b, err := ioutil.ReadFile(fname)
+		panicerr(err)
+		m.NewChapter(titles[fname], b)
 	}
 
 	// Output MOBI File
 	m.Write()
-
 }
 
-// func txtToHtml(b []byte) ([]byte, string) {
-// 	out := bytes.NewBuffer(nil)
-// 	heading := ""
-// 	for _, bs := range bytes.Split(b, []byte("\n")) {
-// 		if heading == "" {
-// 			heading = string(bs)
-// 		}
-// 		s := fmt.Sprintf("<p>%s</p>", string(bs))
-// 		out.WriteString(s)
-// 	}
-
-// 	return out.Bytes(), heading
-// }
+func parseTitlesFile() ([]string, map[string]string) {
+	titles := make(map[string]string)
+	fnames := make([]string, 0)
+	lines := readLines(titlesfname)
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		spl := strings.SplitN(line, " ", 2)
+		if len(spl) != 2 {
+			panic("Invalid line in titles file " + line)
+		}
+		fnames = append(fnames, spl[0])
+		titles[spl[0]] = spl[1]
+	}
+	return fnames, titles
+}

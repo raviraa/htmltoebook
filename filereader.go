@@ -8,9 +8,9 @@ import (
 
 func readLines(fname string) []string {
 	f, err := os.Open(fname)
-	chkerr(err)
+	panicerr(err)
 	b, err := ioutil.ReadAll(f)
-	chkerr(err)
+	panicerr(err)
 	links := strings.Split(string(b), "\n")
 	return links
 }

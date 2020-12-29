@@ -2,38 +2,57 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"net/http"
 	"os"
 	"time"
 	"unicode"
 
-	readability "github.com/go-shiori/go-readability"
+	"github.com/go-shiori/go-readability"
 )
 
-// TODO write out filename, title to a file
 func fetchStripUrls(urls []string) {
+	titlesfile, err := os.OpenFile(titlesfname, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+	if err != nil {
+		panic(err)
+	}
+	defer titlesfile.Close()
+
 	for i, url := range urls {
-		article, err := readability.FromURL(url, 30*time.Second)
-		// article, err := readability.FromReader(resp.Body, url)
-		if err != nil {
-			log.Fatalf("failed to parse %s, %v\n", url, err)
+		dstfname := tmpdir + "/" + urlToFname(url)
+		if _, err := os.Stat(dstfname); err == nil {
+			out("Ignoring fetched url ", url)
+			continue
 		}
 
-		dstTxtFile, _ := os.Create(fmt.Sprintf("text-%02d.txt", i+1))
-		defer dstTxtFile.Close()
-		dstTxtFile.WriteString(article.TextContent)
+		out(fmt.Sprintf("Fetching link %d/%d", i+1, len(urls)))
+		resp, err := fetchUrl(url)
 
-		dstHTMLFile, _ := os.Create(fmt.Sprintf("html-%02d.html", i+1))
+		if err != nil {
+			out(url, err.Error())
+			if config.FailonError {
+				panic(err)
+			}
+			continue
+		}
+		defer resp.Body.Close()
+
+		article, err := readability.FromReader(resp.Body, url)
+		if err != nil {
+			out("failed to parse ", url, err.Error())
+			continue
+		}
+
+		dstHTMLFile, err := os.Create(dstfname)
+		if err != nil {
+			panic(err)
+		}
 		defer dstHTMLFile.Close()
 		dstHTMLFile.WriteString(article.Content)
 
-		fmt.Printf("URL     : %s\n", url)
-		fmt.Printf("Title   : %s\n", article.Title)
-		fmt.Printf("Length  : %d\n", article.Length)
-		fmt.Printf("Excerpt : %s\n", article.Excerpt)
-		fmt.Printf("Text content saved to \"text-%02d.txt\"\n", i+1)
-		fmt.Printf("HTML content saved to \"html-%02d.html\"\n", i+1)
-		fmt.Println()
+		fmt.Fprintf(titlesfile, "%s %s\n", dstfname, article.Title)
+
+		out(fmt.Sprintf("Sleeping for duration %d seconds ", config.SleepInterval))
+		time.Sleep(time.Duration(config.SleepInterval * int(time.Second)))
 	}
 }
 
@@ -46,4 +65,18 @@ func urlToFname(url string) string {
 		}
 	}
 	return string(out) + ".html"
+}
+
+func fetchUrl(url string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("User-Agent", config.UserAgent)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
