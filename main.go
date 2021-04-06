@@ -2,11 +2,12 @@ package main
 
 import (
 	"flag"
+	"localhost/htmltoebook/web"
 	"log"
 	"os"
 )
 
-func main() {
+func main2() {
 
 	flag.StringVar(&config.LinksFile, "l", "", "file containing http links to fetch (REQUIRED)")
 	flag.BoolVar(&config.FailonError, "f", false, "exit when fetching any of the link fails")
@@ -23,6 +24,13 @@ func main() {
 	fetchStripUrls(links)
 	writeMobi()
 
+}
+
+func main() {
+	log.SetFlags(log.Lshortfile | log.Ltime)
+
+	web.NewWeb()
+	// webWorker(h)
 }
 
 func panicerr(err error) {
