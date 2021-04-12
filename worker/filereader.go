@@ -16,7 +16,7 @@ func ReadLines(fname string) []string {
 }
 
 func SplitLinks(s string) []string {
-	// TODO strip out invalid links, whitespaces
+	// strip out invalid links, whitespaces
 	splits := strings.Split(s, "\n")
 	var links []string
 	for _, s := range splits {

@@ -3,6 +3,7 @@ package worker
 import (
 	"io/ioutil"
 	"localhost/htmltoebook/config"
+	"os"
 	"strings"
 
 	"github.com/766b/mobi"
@@ -10,13 +11,14 @@ import (
 
 func WriteMobi() {
 	inpfiles, titles := parseTitlesFile()
-	out("Writing mobi file")
+	loginfo("Writing mobi file")
 	outfname := config.Tmpdir + "/output.mobi"
 	m, err := mobi.NewWriter(outfname)
 	if err != nil {
 		panic(err)
 	}
 
+	// TODO add title, image to configuration
 	m.Title("Book Title")
 	m.Compression(mobi.CompressionNone) // LZ77 compression is also possible using  mobi.CompressionPalmDoc
 	// m.Compression(mobi.CompressionPalmDoc)
@@ -27,18 +29,25 @@ func WriteMobi() {
 	// Meta data
 	m.NewExthRecord(mobi.EXTH_DOCTYPE, "EBOK")
 	m.NewExthRecord(mobi.EXTH_AUTHOR, "Book Author Name")
-	// See exth.go for additional EXTH record IDs
 
 	for _, fname := range inpfiles {
-		out("Adding ", fname, titles[fname])
+		loginfo("Adding ", titles[fname])
 		b, err := ioutil.ReadFile(fname)
 		panicerr(err)
 		m.NewChapter(titles[fname], b)
 	}
-
 	// Output MOBI File
 	m.Write()
-	out("Sucessfully written " + outfname)
+	logsuccess("Sucessfully written " + outfname)
+
+	if !config.Config.KeepTmpFiles {
+		loginfo("Cleaning temporary files")
+		for _, fname := range inpfiles {
+			os.Remove(fname)
+		}
+		os.Remove(config.TitlesFname)
+
+	}
 }
 
 func parseTitlesFile() ([]string, map[string]string) {

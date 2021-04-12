@@ -1,12 +1,14 @@
 package worker
 
 import (
+	"context"
 	"fmt"
 	"localhost/htmltoebook/config"
 	"localhost/htmltoebook/types"
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/jfyne/live"
 )
@@ -14,8 +16,6 @@ import (
 // Worker handles fetching html links, stripping content and conversion to mobi format
 type Worker struct {
 	handler *live.Handler
-	done    chan bool
-	running bool
 }
 
 var worker *Worker = &Worker{}
@@ -24,17 +24,23 @@ func SetHandler(h *live.Handler) {
 	worker.handler = h
 }
 
-func StartWorker(links []string) {
+func StartWorker(ctx context.Context, links []string) {
 	os.Mkdir(config.Tmpdir, 0750)
 	go func() {
 		log.Println("in start worker")
-		out(fmt.Sprintf("Processing links: %v ", len(links)))
-		FetchStripUrls(links)
-		WriteMobi()
-		// TODO remove title and html files.
-		// appendLog(worker.handler, fmt.Sprintf("log %v %v", i, i*2), "info")
+		loginfo(fmt.Sprintf("Processing links: %v ", len(links)))
+		if FetchStripUrls(ctx, links) {
+			WriteMobi()
+		}
+		notifyWebUiStop()
 	}()
 
+}
+
+func notifyWebUiStop() {
+	worker.handler.Broadcast(live.Event{
+		T: types.EvWorkerStopped,
+	})
 }
 
 func AppendLog(msg, level string) {
@@ -49,17 +55,31 @@ func AppendLog(msg, level string) {
 
 func ClearTmpDir() {
 	if err := os.RemoveAll(config.Tmpdir); err != nil {
-		out("Error removing temporary directory: ", config.Tmpdir, err.Error())
+		logerr("Error removing temporary directory: ", config.Tmpdir, err.Error())
 		return
 	}
-	out("Removed temporary directory: ", config.Tmpdir)
+	loginfo("Removed temporary directory: ", config.Tmpdir)
 }
 
-// log to websocket in future?
-func out(s ...string) {
+func logsuccess(s ...string) {
+	loglog("success", s...)
+}
+
+func logerr(s ...string) {
+	loglog("warn", s...)
+}
+
+func loginfo(s ...string) {
+	loglog("info", s...)
+}
+
+func loglog(level string, s ...string) {
 	log.Println(s)
-	// TODO check webui running?
-	AppendLog(strings.Join(s, " "), "info")
+	if worker.handler != nil {
+		outstr := time.Now().Format("15:04:05 ")
+		outstr += strings.Join(s, " ")
+		AppendLog(outstr, level)
+	}
 }
 func panicerr(err error) {
 	if err != nil {

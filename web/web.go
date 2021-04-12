@@ -1,27 +1,34 @@
 package web
 
 import (
+	"context"
+	_ "embed"
 	"html/template"
 	"localhost/htmltoebook/types"
 	"localhost/htmltoebook/worker"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/jfyne/live"
 )
 
+// Events to handle in from ui or worker
 const (
-	evlogmsg = types.Evlogmsg
-	evstart  = "evstart"
-	evclear  = "evclear"
-	evstop   = "evstop"
+	evlogmsg        = types.Evlogmsg
+	evWorkerStopped = types.EvWorkerStopped
+	evstart         = "evstart"
+	evclear         = "evclear"
+	evstop          = "evstop"
 )
+
+// state shared across ui clients
+var workerRunning bool
 
 type model struct {
 	LogMsgs []types.LogMsg
-	Running bool
-	// InputLinks string
+	cancel  context.CancelFunc
 }
 
 func newModel(s *live.Socket) *model {
@@ -32,14 +39,22 @@ func newModel(s *live.Socket) *model {
 	return m
 }
 
+//go:embed root.html
+var rootHtml string
+
+//go:embed milligram.css
+var cssFramework string
+
 func NewWeb() {
-	// TODO embed template https://golang.org/pkg/embed/
-	t, err := template.ParseFiles("root.html")
+	// Using embedded root.html and css framework  in binary
+	rootHtml = strings.Replace(rootHtml, "/*CSSFRAMEWORK*/", cssFramework, 1)
+	t, err := template.New("root.html").Parse(rootHtml)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	h, err := live.NewHandler(live.NewCookieStore("session-name", []byte("weak-secret")), live.WithTemplateRenderer(t))
+	hostname, _ := os.Hostname()
+	// App should run only on localhost, security for public network not considered
+	h, err := live.NewHandler(live.NewCookieStore("session-name", []byte("secret"+hostname)), live.WithTemplateRenderer(t))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -55,6 +70,7 @@ func NewWeb() {
 	}
 	log.Println("listening on ", port)
 	err = http.ListenAndServe(port, nil)
+	// TODO launch link in browser
 	if err != nil {
 		log.Fatal(err)
 	}

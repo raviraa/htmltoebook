@@ -14,9 +14,11 @@ import (
 func setEvents(h *live.Handler) {
 	h.Mount = onMount
 	h.HandleEvent(evstart, onStart)
-	h.HandleSelf(evlogmsg, onLogMsg)
 	h.HandleEvent(evstop, onStop)
 	h.HandleEvent(evclear, onClear)
+
+	h.HandleSelf(evlogmsg, onLogMsg)
+	h.HandleSelf(evWorkerStopped, onWorkerStopped)
 }
 
 func onMount(ctx context.Context, r *http.Request, s *live.Socket) (interface{}, error) {
@@ -51,19 +53,35 @@ func onClear(ctx context.Context, s *live.Socket, p map[string]interface{}) (int
 }
 
 func onStop(ctx context.Context, s *live.Socket, p map[string]interface{}) (interface{}, error) {
-	log.Println(p)
 	m := newModel(s)
-
+	if m.cancel != nil {
+		worker.AppendLog("Requesting for cancellation", "warn")
+		m.cancel()
+	}
 	return m, nil
 }
 
 func onStart(ctx context.Context, s *live.Socket, p map[string]interface{}) (interface{}, error) {
-	log.Println(p)
-	// TODO check is running?
 	m := newModel(s)
+	if workerRunning {
+		worker.AppendLog("Worker already running", "warn")
+		return m, nil
+	}
+	workerRunning = true
 	linksParam := live.ParamString(p, "links")
 	links := worker.SplitLinks(linksParam)
-	worker.StartWorker(links)
-
+	if len(links) > 0 {
+		var ctx context.Context
+		ctx, m.cancel = context.WithCancel(context.Background())
+		worker.StartWorker(ctx, links)
+		return m, nil
+	}
+	worker.AppendLog("Please add http links in the text area to process", "info")
 	return m, nil
+}
+
+func onWorkerStopped(ctx context.Context, s *live.Socket, p map[string]interface{}) (interface{}, error) {
+	log.Println("worked stopped from ui")
+	workerRunning = false
+	return newModel(s), nil
 }
