@@ -1,7 +1,9 @@
-package main
+package worker
 
 import (
 	"fmt"
+	"localhost/htmltoebook/config"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -10,27 +12,26 @@ import (
 	"github.com/go-shiori/go-readability"
 )
 
-func fetchStripUrls(urls []string) {
-	titlesfile, err := os.OpenFile(titlesfname, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+func FetchStripUrls(urls []string) {
+	titlesfile, err := os.OpenFile(config.TitlesFname, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 	if err != nil {
 		panic(err)
 	}
 	defer titlesfile.Close()
 
 	for i, url := range urls {
-		dstfname := tmpdir + "/" + urlToFname(url)
+		dstfname := config.Tmpdir + "/" + urlToFname(url)
 		if _, err := os.Stat(dstfname); err == nil {
-			out("Ignoring fetched url ", url)
+			out("Ignoring cached url ", url)
 			continue
 		}
+		out(fmt.Sprintf("Fetching link %d/%d: %v", i+1, len(urls), url))
 
-		out(fmt.Sprintf("Fetching link %d/%d", i+1, len(urls)))
 		resp, err := fetchUrl(url)
-
 		if err != nil {
 			out(url, err.Error())
-			if config.FailonError {
-				panic(err)
+			if config.Config.FailonError {
+				log.Fatal(err)
 			}
 			continue
 		}
@@ -44,15 +45,15 @@ func fetchStripUrls(urls []string) {
 
 		dstHTMLFile, err := os.Create(dstfname)
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 		defer dstHTMLFile.Close()
 		dstHTMLFile.WriteString(article.Content)
 
 		fmt.Fprintf(titlesfile, "%s %s\n", dstfname, article.Title)
 
-		out(fmt.Sprintf("Sleeping for duration %d seconds ", config.SleepInterval))
-		time.Sleep(time.Duration(config.SleepInterval * int(time.Second)))
+		out(fmt.Sprintf("Sleeping for %d seconds ", config.Config.SleepSec))
+		time.Sleep(time.Duration(config.Config.SleepSec * int(time.Second)))
 	}
 }
 
@@ -72,9 +73,9 @@ func fetchUrl(url string) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Add("User-Agent", config.UserAgent)
+	req.Header.Add("User-Agent", config.Config.UserAgent)
 
-	resp, err := client.Do(req)
+	resp, err := config.Client.Do(req)
 	if err != nil {
 		return nil, err
 	}

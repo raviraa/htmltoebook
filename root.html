@@ -2,16 +2,23 @@
 <html lang="en">
 
 <head>
-  <!-- <link rel="stylesheet" href="./mvp.css"> -->
-  <link rel="stylesheet" href="https://unpkg.com/mvp.css">
+  <!-- <link rel="stylesheet" href="./mvp.css"> TODO embed css -->
+  <link rel="stylesheet" href="https://unpkg.com/milligram@1.4.1/dist/milligram.css">
 
   <meta charset="utf-8">
   <meta name="description" content="My description">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Html to Ebook</title>
   <style>
+    /*
     h4 {
       color: brown;
+    }
+
+    .mybtn {
+      display: inline-block;
+      margin: 4px;
+      padding: 4px;
     }
 
     form {
@@ -27,21 +34,27 @@
       overflow-y: scroll;
       height: 500px;
     }
+    */
   </style>
 </head>
 
 <body>
-  <!-- <header> <h1>Html to Ebook</h1> </header> -->
-  <h3>Html to Ebook</h3>
+  <h3 class="float-right">HTML To EBOOK</h3>
   <section>
     <aside style="width: 20rem">
-      <form id="form1" live-submit="evstart">
+      <div>
+          <button live-click="evstop" class="mybtn">Stop</button>
+          <button live-click="evclear" class="mybtn" title="Clear intermediate files of failed runs">Clear Temp</button>
+      </div>
+      <form id="form1" live-update="evstop" live-submit="evstart">
+        <div>
+          <input class="mybtn" type="submit" value="Start">
+        </div>
         <label for="links">Book Html Links</label>
-        <textarea cols="40" rows="5" id="links">https://en.wikipedia.org/wiki/Go_(programming_language)</textarea>
-        <button type="submit">Start</button>
+        <textarea cols="40" rows="18" name="links">https://en.wikipedia.org/wiki/Go_(programming_language)
+https://en.wikipedia.org/wiki/Python_(programming_language)</textarea>
       </form>
 
-      <button live-click="evstart">Start</button>
     </aside>
     <aside style="width: 30rem">
       <h4>Update Log</h4>

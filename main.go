@@ -2,27 +2,27 @@ package main
 
 import (
 	"flag"
+	"localhost/htmltoebook/config"
 	"localhost/htmltoebook/web"
+	"localhost/htmltoebook/worker"
 	"log"
 	"os"
 )
 
 func main2() {
 
-	flag.StringVar(&config.LinksFile, "l", "", "file containing http links to fetch (REQUIRED)")
-	flag.BoolVar(&config.FailonError, "f", false, "exit when fetching any of the link fails")
-	flag.StringVar(&config.UserAgent, "ua", "Mozilla/5.0 (X11; rv:84.0) Gecko/20100101 Firefox/84.0", "user agent to use for http request")
-	flag.IntVar(&config.SleepInterval, "s", 3, "sleep interval between fetching links")
+	flag.StringVar(&config.Config.LinksFile, "l", "", "file containing http links to fetch (REQUIRED)")
+	flag.BoolVar(&config.Config.FailonError, "f", false, "exit when fetching any of the link fails")
 
 	flag.Parse()
-	if config.LinksFile == "" {
+	if config.Config.LinksFile == "" {
 		flag.PrintDefaults()
 		os.Exit(2)
 	}
 
-	links := readLines(config.LinksFile)
-	fetchStripUrls(links)
-	writeMobi()
+	links := worker.ReadLines(config.Config.LinksFile)
+	worker.FetchStripUrls(links)
+	worker.WriteMobi()
 
 }
 
@@ -31,15 +31,4 @@ func main() {
 
 	web.NewWeb()
 	// webWorker(h)
-}
-
-func panicerr(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
-// log to websocket in future?
-func out(s ...string) {
-	log.Println(s)
 }

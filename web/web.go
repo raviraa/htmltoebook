@@ -1,7 +1,6 @@
 package web
 
 import (
-	"context"
 	"html/template"
 	"localhost/htmltoebook/types"
 	"localhost/htmltoebook/worker"
@@ -16,12 +15,13 @@ const (
 	evlogmsg = types.Evlogmsg
 	evstart  = "evstart"
 	evclear  = "evclear"
+	evstop   = "evstop"
 )
 
 type model struct {
-	LogMsgs    []types.LogMsg
-	Running    bool
-	InputLinks []string
+	LogMsgs []types.LogMsg
+	Running bool
+	// InputLinks string
 }
 
 func newModel(s *live.Socket) *model {
@@ -33,7 +33,8 @@ func newModel(s *live.Socket) *model {
 }
 
 func NewWeb() {
-	t, err := template.ParseFiles("root.html", "view.html")
+	// TODO embed template https://golang.org/pkg/embed/
+	t, err := template.ParseFiles("root.html")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -43,10 +44,7 @@ func NewWeb() {
 		log.Fatal(err)
 	}
 	worker.SetHandler(h)
-
-	h.Mount = onMount
-	// h.HandleEvent(evstart, onLogMsg)
-	h.HandleSelf(evlogmsg, onLogMsg)
+	setEvents(h)
 
 	http.Handle("/", h)
 	http.Handle("/live.js", live.Javascript{})
@@ -55,16 +53,9 @@ func NewWeb() {
 	if port == "" {
 		port = "localhost:9394"
 	}
+	log.Println("listening on ", port)
 	err = http.ListenAndServe(port, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-}
-
-func onMount(ctx context.Context, r *http.Request, s *live.Socket) (interface{}, error) {
-	m := newModel(s)
-	if s.Connected() {
-		worker.StartWorker()
-	}
-	return m, nil
 }

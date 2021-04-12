@@ -1,18 +1,18 @@
-package main
+package worker
 
 import (
 	"io/ioutil"
-	"os"
+	"localhost/htmltoebook/config"
 	"strings"
 
 	"github.com/766b/mobi"
 )
 
-func writeMobi() {
+func WriteMobi() {
 	inpfiles, titles := parseTitlesFile()
-	os.Mkdir(tmpdir, 0750)
-
-	m, err := mobi.NewWriter(tmpdir + "/output.mobi")
+	out("Writing mobi file")
+	outfname := config.Tmpdir + "/output.mobi"
+	m, err := mobi.NewWriter(outfname)
 	if err != nil {
 		panic(err)
 	}
@@ -38,12 +38,13 @@ func writeMobi() {
 
 	// Output MOBI File
 	m.Write()
+	out("Sucessfully written " + outfname)
 }
 
 func parseTitlesFile() ([]string, map[string]string) {
 	titles := make(map[string]string)
 	fnames := make([]string, 0)
-	lines := readLines(titlesfname)
+	lines := ReadLines(config.TitlesFname)
 	for _, line := range lines {
 		if line == "" {
 			continue
