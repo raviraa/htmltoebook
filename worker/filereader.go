@@ -6,13 +6,17 @@ import (
 	"strings"
 )
 
-func ReadLines(fname string) []string {
+func ReadLines(fname string) ([]string, error) {
 	f, err := os.Open(fname)
-	panicerr(err)
+	if err != nil {
+		return nil, err
+	}
 	b, err := ioutil.ReadAll(f)
-	panicerr(err)
+	if err != nil {
+		return nil, err
+	}
 	links := SplitLinks(string(b))
-	return links
+	return links, nil
 }
 
 func SplitLinks(s string) []string {

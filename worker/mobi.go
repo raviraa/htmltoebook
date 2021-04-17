@@ -1,21 +1,27 @@
 package worker
 
 import (
+	"errors"
+	"fmt"
 	"io/ioutil"
-	"localhost/htmltoebook/config"
 	"os"
 	"strings"
 
 	"github.com/766b/mobi"
 )
 
-func WriteMobi() {
-	inpfiles, titles := parseTitlesFile()
-	loginfo("Writing mobi file")
-	outfname := config.Tmpdir + "/output.mobi"
+func (w *Worker) WriteMobi() error {
+	inpfiles, titles, err := parseTitlesFile(w.conf.TitlesFname())
+	if err != nil {
+		w.logerr("unable to read intermediate file list. ", err.Error())
+		return err
+	}
+	w.loginfo("Writing mobi file")
+	outfname := w.conf.Tmpdir + "/output.mobi"
 	m, err := mobi.NewWriter(outfname)
 	if err != nil {
-		panic(err)
+		w.logerr("Failed opening mobi file ", outfname, err.Error())
+		return err
 	}
 
 	// TODO add title, image to configuration
@@ -30,40 +36,60 @@ func WriteMobi() {
 	m.NewExthRecord(mobi.EXTH_DOCTYPE, "EBOK")
 	m.NewExthRecord(mobi.EXTH_AUTHOR, "Book Author Name")
 
+	if len(inpfiles) == 0 {
+		err = errors.New("error fetching any of the links")
+		w.logerr(err.Error())
+		return err
+	}
+	w.logsuccess(fmt.Sprintf("Writing %d link(s) to mobi file", len(inpfiles)))
+
 	for _, fname := range inpfiles {
-		loginfo("Adding ", titles[fname])
+		w.loginfo("Adding ", titles[fname])
 		b, err := ioutil.ReadFile(fname)
-		panicerr(err)
+		if err != nil {
+			err = fmt.Errorf("error reading intermediate saved html file. %w", err)
+			w.logerr(err.Error())
+			return err
+		}
 		m.NewChapter(titles[fname], b)
 	}
 	// Output MOBI File
 	m.Write()
-	logsuccess("Sucessfully written " + outfname)
+	w.logsuccess("Sucessfully written " + outfname)
 
-	if !config.Config.KeepTmpFiles {
-		loginfo("Cleaning temporary files")
+	if !w.conf.KeepTmpFiles {
+		w.loginfo("Cleaning temporary files")
 		for _, fname := range inpfiles {
 			os.Remove(fname)
 		}
-		os.Remove(config.TitlesFname)
+		os.Remove(w.conf.TitlesFname())
 
 	}
+	return nil
 }
 
-func parseTitlesFile() ([]string, map[string]string) {
-	titles := make(map[string]string)
-	fnames := make([]string, 0)
-	lines := ReadLines(config.TitlesFname)
+// parseTitlesFile Returns fnames, titles and error
+// fnames is slice of parsed html file names
+// titles is map[file name] -> html title
+func parseTitlesFile(titleFname string) (fnames []string, titles map[string]string, err error) {
+	titles = make(map[string]string)
+	var lines []string
+	lines, err = ReadLines(titleFname)
+	if err != nil {
+		return
+	}
+
 	for _, line := range lines {
 		if line == "" {
 			continue
 		}
-		spl := strings.SplitN(line, " ", 2)
+		spl := strings.SplitN(line, "\x00", 2)
 		if len(spl) != 2 {
-			panic("Invalid line in titles file " + line)
+			err = errors.New("Invalid line in titles file " + line)
+			return
 		}
 		fnames = append(fnames, spl[0])
 		titles[spl[0]] = spl[1]
 	}
-	return fnames, titles
+	return
 }

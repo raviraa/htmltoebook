@@ -3,12 +3,29 @@ package web
 import (
 	"context"
 	"fmt"
-	"localhost/htmltoebook/types"
-	"localhost/htmltoebook/worker"
 	"log"
 	"net/http"
 
+	"github.com/raviraa/htmltoebook/types"
+	"github.com/raviraa/htmltoebook/worker"
+
 	"github.com/jfyne/live"
+)
+
+// Events to handle in from ui or worker
+const (
+	evlogmsg        = types.Evlogmsg
+	evWorkerStopped = types.EvWorkerStopped
+	// Starts downloading and processing web links
+	evstart = "evstart"
+	// Clear tmp files and removes tmpdir
+	evclear = "evclear"
+	// Request to stop processing
+	evstop = "evstop"
+	// Save Settings form data
+	evsave = "evsave"
+	// Show/Hide Settings modal
+	evconf = "evconf"
 )
 
 func setEvents(h *live.Handler) {
@@ -16,6 +33,8 @@ func setEvents(h *live.Handler) {
 	h.HandleEvent(evstart, onStart)
 	h.HandleEvent(evstop, onStop)
 	h.HandleEvent(evclear, onClear)
+	h.HandleEvent(evsave, onSave)
+	h.HandleEvent(evconf, onConf)
 
 	h.HandleSelf(evlogmsg, onLogMsg)
 	h.HandleSelf(evWorkerStopped, onWorkerStopped)
@@ -26,7 +45,7 @@ func onMount(ctx context.Context, r *http.Request, s *live.Socket) (interface{},
 	if s.Connected() {
 		go func() {
 			log.Println("Connected")
-			worker.AppendLog("Connected. Ready to start.", "info")
+			m.worker.AppendLog("Connected. Ready to start.", "info")
 
 		}()
 	}
@@ -43,19 +62,28 @@ func onLogMsg(ctx context.Context, s *live.Socket, p map[string]interface{}) (in
 	if !ok {
 		return m, fmt.Errorf("log conversion error %v", p)
 	}
-	m.LogMsgs = []types.LogMsg{logmsg}
+	// m.LogMsgs = []types.LogMsg{logmsg}
+	m.LogMsgs = append(m.LogMsgs, logmsg)
 	return m, nil
 }
 
 func onClear(ctx context.Context, s *live.Socket, p map[string]interface{}) (interface{}, error) {
-	worker.ClearTmpDir()
-	return newModel(s), nil
+	m := newModel(s)
+	m.LogMsgs = nil
+	m.worker.ClearTmpDir()
+	return m, nil
+}
+
+func onConf(ctx context.Context, s *live.Socket, p map[string]interface{}) (interface{}, error) {
+	m := newModel(s)
+	m.ShowConf = !m.ShowConf
+	return m, nil
 }
 
 func onStop(ctx context.Context, s *live.Socket, p map[string]interface{}) (interface{}, error) {
 	m := newModel(s)
 	if m.cancel != nil {
-		worker.AppendLog("Requesting for cancellation", "warn")
+		m.worker.AppendLog("Requesting for cancellation", "warn")
 		m.cancel()
 	}
 	return m, nil
@@ -63,25 +91,46 @@ func onStop(ctx context.Context, s *live.Socket, p map[string]interface{}) (inte
 
 func onStart(ctx context.Context, s *live.Socket, p map[string]interface{}) (interface{}, error) {
 	m := newModel(s)
+	runningMu.Lock()
 	if workerRunning {
-		worker.AppendLog("Worker already running", "warn")
+		m.worker.AppendLog("Worker already running", "warn")
 		return m, nil
 	}
 	workerRunning = true
+	m.Running = true
+	runningMu.Unlock()
 	linksParam := live.ParamString(p, "links")
 	links := worker.SplitLinks(linksParam)
 	if len(links) > 0 {
 		var ctx context.Context
 		ctx, m.cancel = context.WithCancel(context.Background())
-		worker.StartWorker(ctx, links)
+		m.worker.StartWorker(ctx, links)
 		return m, nil
 	}
-	worker.AppendLog("Please add http links in the text area to process", "info")
+	m.worker.AppendLog("Please add http links in the text area to process", "info")
 	return m, nil
 }
 
 func onWorkerStopped(ctx context.Context, s *live.Socket, p map[string]interface{}) (interface{}, error) {
-	log.Println("worked stopped from ui")
+	m := newModel(s)
+	runningMu.Lock()
 	workerRunning = false
-	return newModel(s), nil
+	m.Running = false
+	runningMu.Unlock()
+	log.Println("worked stopped from ui")
+	return m, nil
+}
+
+func onSave(ctx context.Context, s *live.Socket, p map[string]interface{}) (interface{}, error) {
+	m := newModel(s)
+	m.Conf.SleepSec = live.ParamInt(p, "SleepSec")
+	m.Conf.FailonError = live.ParamCheckbox(p, "FailonError")
+	m.Conf.KeepTmpFiles = live.ParamCheckbox(p, "KeepTmpFiles")
+	m.Conf.Tmpdir = live.ParamString(p, "Tmpdir")
+	if err := m.Conf.WriteConf(); err != nil {
+		m.worker.AppendLog("Error saving config file. "+err.Error(), "warn")
+	}
+	m.ShowConf = false
+	log.Printf("%+v, %+v", m.Conf, p)
+	return m, nil
 }

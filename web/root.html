@@ -10,21 +10,37 @@
     .logline {font-size: small}
     .warn { color: tomato}
     .success { color: green}
-    /*CSSFRAMEWORK*/
+    #config {
+      position: absolute;
+      top: 10rem;
+      left: 3rem;
+      background-color: hsl(44, 10%, 94%);
+      padding: 3rem;
+      border: 2px solid #9b4dca;
+    }
+    #updatelog {
+      max-height: 35rem;
+      overflow-y: scroll;
+    }
+    form {margin-bottom: 0px !important;}
   </style>
+  <link rel="stylesheet" href="/milligram.css"/>
 </head>
 
 <body>
-  <h3 style="text-align: center;">HTML To EBOOK</h3>
+  <h3 style="text-align: center;">
+    <img src="favicon.ico" width="30" height="30"/>
+    HTML TO EBOOK</h3>
 
   <div class="continer">
     <div class="row">
       <div class="column">
         <div class="float-right">
           <button live-click="evstop" class="mybtn button-outline">Stop</button>
-          <button live-click="evclear" class="mybtn button-outline" title="Clear intermediate files of failed runs">Clear Temp</button>
+          <button live-click="evclear" class="mybtn button-outline" title="Clear intermediate files of failed runs">Clear</button>
+          <button live-click="evconf" class="mybtn button-outline">Settings</button>
         </div>
-        <form id="form1" live-update="evstop" live-submit="evstart">
+        <form id="form1" live-submit="evstart">
           <div>
             <input class="mybtn" type="submit" value="Start">
           </div>
@@ -32,11 +48,14 @@
           <textarea style="height: 20rem;" cols="40" rows="18" name="links">https://en.wikipedia.org/wiki/Go_(programming_language)
 https://en.wikipedia.org/wiki/Python_(programming_language)</textarea>
         </form>
-
       </div>
+
       <div class="column" style="border-left: 1px gray solid;">
+        <img class="float-right"
+        {{if not .Running}}style="display:none"{{end}}
+         src="/progress.gif"/>
         <h2 style="color: brown;">Update Log</h2>
-        <div id="updatelog" live-update="prepend">
+        <div id="updatelog" >
           {{range .LogMsgs}}
           <div class="logline {{.Level}}">{{.Msg}}</div>
           {{end}}
@@ -45,6 +64,26 @@ https://en.wikipedia.org/wiki/Python_(programming_language)</textarea>
 
     </div>
 
+  </div>
+
+  <div id="config"
+     {{if not .ShowConf}} style="display:none"{{end}}>
+    <h6 style="text-align: center;">Edit Configuration</h6>
+        <form id="form2" live-submit="evsave">
+        <div>
+          <label for="Tmpdir">Folder to save ebook</label>
+          <input type="text" name="Tmpdir" value="{{.Conf.Tmpdir}}">
+          <label for="SleepSec">Sleep interval between fetching links in seconds</label>
+          <input type="number" name="SleepSec" value="{{.Conf.SleepSec}}">
+          <input type="checkbox" name="FailonError" {{if .Conf.FailonError}}checked{{end}}>
+          <label class="label-inline" for="FailonError">Stop the process on any errors fetching links</label><br/>
+          <input type="checkbox" name="KeepTmpFiles" {{if .Conf.KeepTmpFiles}}checked{{end}}>
+          <label for="KeepTmpFiles" class="label-inline">Keep intermediate files after succesfully creating ebook</label><br/>
+          </div>
+
+          <input class="mybtn" type="submit" value="Save">
+        </form>
+        <button class="mybtn button-outline " live-click="evconf">Cancel</button>
   </div>
 
   <script src="live.js" type="text/javascript"></script>

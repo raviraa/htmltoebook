@@ -2,8 +2,8 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"localhost/htmltoebook/config"
 	"log"
 	"net/http"
 	"os"
@@ -13,26 +13,29 @@ import (
 	"github.com/go-shiori/go-readability"
 )
 
-func FetchStripUrls(ctx context.Context, urls []string) bool {
-	titlesfile, err := os.OpenFile(config.TitlesFname, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+func (w *Worker) FetchStripUrls(ctx context.Context, urls []string) bool {
+	titlesfile, err := os.OpenFile(w.conf.TitlesFname(), os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 	if err != nil {
-		panic(err)
+		w.logerr("unable to open intermediate files for writing ", err.Error())
+		return false
 	}
 	defer titlesfile.Close()
 
 	for i, url := range urls {
-		dstfname := config.Tmpdir + "/" + urlToFname(url)
+		dstfname := w.conf.Tmpdir + "/" + urlToFname(url)
 		if _, err := os.Stat(dstfname); err == nil {
-			loginfo("Ignoring cached url ", url)
+			w.loginfo("Ignoring cached url ", url)
 			continue
 		}
-		loginfo(fmt.Sprintf("Fetching link %d/%d: %v", i+1, len(urls), url))
+		w.loginfo(fmt.Sprintf("Fetching link %d/%d: %v", i+1, len(urls), url))
 
-		resp, err := fetchUrl(ctx, url)
+		resp, err := w.fetchUrl(ctx, url)
 		if err != nil {
-			logerr(url, err.Error())
-			if config.Config.FailonError {
-				log.Fatal(err)
+			w.logerr(url, err.Error())
+			if w.conf.FailonError {
+				// log.Fatal(err)
+				w.logerr(err.Error())
+				return false
 			}
 			continue
 		}
@@ -40,7 +43,7 @@ func FetchStripUrls(ctx context.Context, urls []string) bool {
 
 		article, err := readability.FromReader(resp.Body, url)
 		if err != nil {
-			logerr("failed to parse ", url, err.Error())
+			w.logerr("failed to parse ", url, err.Error())
 			continue
 		}
 
@@ -51,15 +54,14 @@ func FetchStripUrls(ctx context.Context, urls []string) bool {
 		defer dstHTMLFile.Close()
 		dstHTMLFile.WriteString(article.Content)
 
-		fmt.Fprintf(titlesfile, "%s %s\n", dstfname, article.Title)
+		fmt.Fprintf(titlesfile, "%s\x00%s\n", dstfname, article.Title)
 
-		loginfo(fmt.Sprintf("Sleeping for %d seconds ", config.Config.SleepSec))
-		// time.Sleep(time.Duration(config.Config.SleepSec * int(time.Second)))
+		w.loginfo(fmt.Sprintf("Fetched article with %d letters. Sleeping for %d seconds ", article.Length, w.conf.SleepSec))
 		select {
-		case <-time.After(time.Duration(config.Config.SleepSec * int(time.Second))):
-			// pass on normal timeout
+		case <-time.After(time.Duration(w.conf.SleepSec * int(time.Second))):
+			// nothing to do on normal timeout
 		case <-ctx.Done():
-			logerr("Stopping the process")
+			w.logerr("Stopping the process")
 			return false
 		}
 	}
@@ -77,16 +79,20 @@ func urlToFname(url string) string {
 	return string(out) + ".html"
 }
 
-func fetchUrl(ctx context.Context, url string) (*http.Response, error) {
+func (w *Worker) fetchUrl(ctx context.Context, url string) (*http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Add("User-Agent", config.Config.UserAgent)
+	req.Header.Add("User-Agent", w.conf.UserAgent)
 	req = req.WithContext(ctx)
 
-	resp, err := config.Client.Do(req)
+	resp, err := w.client.Do(req)
 	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		err = errors.New("Error fetching url " + resp.Status)
 		return nil, err
 	}
 	return resp, nil
