@@ -5,6 +5,7 @@ Converts html webpages to a readable ebook. Fetches the list of html web pages, 
 * Currently supported output format is mobi
 * Two user interfaces supported, cli and webui. Launches webui by default.
 * By default ebook is generated in folder $HOME/Downloads/htmltoebook
+* Built releases [available](https://github.com/raviraa/htmltoebook/releases) for linux, windows and mac darwin. Only linux version is tested.
 
 ![Screenshot](screenshot.png)
 

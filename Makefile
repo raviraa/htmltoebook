@@ -14,7 +14,7 @@ zips:
 	cd out/linux && pwd && zip release-linux.zip htmltoebook
 	cd out/windows && zip release-windows.zip htmltoebook.exe
 	cd out/darwin && zip release-darwin.zip htmltoebook
-	git log --pretty=format:"%s" `git tag -l |head -1` > changelog.txt
+	git log --pretty=format:"%s" > changelog.txt
 	cat changelog.txt
 
 all: goget linux windows darwin zips
