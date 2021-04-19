@@ -1,3 +1,8 @@
+# Makefile used to build releases
+goget:
+	go version
+	go env
+	go mod download
 linux:
 	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags '-extldflags "-static" -s -w' -o out/linux/htmltoebook .
 windows:
@@ -5,4 +10,11 @@ windows:
 darwin:
 	CGO_ENABLED=0 GOARCH=amd64 GOOS=darwin go build -ldflags '-extldflags "-static" -s -w' -o out/darwin/htmltoebook .
 
-all: linux windows darwin
+zips:
+	cd out/linux && pwd && zip release-linux.zip htmltoebook
+	cd out/windows && zip release-windows.zip htmltoebook.exe
+	cd out/darwin && zip release-darwin.zip htmltoebook
+	git log --pretty=format:"%s" `git tag -l |head -1` > changelog.txt
+	cat changelog.txt
+
+all: goget linux windows darwin zips
