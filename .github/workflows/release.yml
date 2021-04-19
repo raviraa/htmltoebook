@@ -20,9 +20,9 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            out/darwin/release-darwin.zip
-            out/windows/release-windows.zip
-            out/linux/release-linux.zip
+            out/darwin/htmltoebook-darwin.tar.gz
+            out/windows/htmltoebook-windows.zip
+            out/linux/htmltoebook-linux.tar.gz
           body_path: changelog.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

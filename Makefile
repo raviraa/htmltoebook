@@ -11,9 +11,9 @@ darwin:
 	CGO_ENABLED=0 GOARCH=amd64 GOOS=darwin go build -ldflags '-extldflags "-static" -s -w' -o out/darwin/htmltoebook .
 
 zips:
-	cd out/linux && pwd && zip release-linux.zip htmltoebook
-	cd out/windows && zip release-windows.zip htmltoebook.exe
-	cd out/darwin && zip release-darwin.zip htmltoebook
+	cd out/linux && pwd && tar -czvf htmltoebook-linux.tar.gz htmltoebook
+	cd out/windows && zip htmltoebook-windows.zip htmltoebook.exe
+	cd out/darwin && tar -czvf htmltoebook-darwin.tar.gz htmltoebook
 	git log --pretty=format:"%s" > changelog.txt
 	cat changelog.txt
 
