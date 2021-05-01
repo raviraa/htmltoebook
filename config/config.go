@@ -20,6 +20,10 @@ type ConfigType struct {
 	SleepSec int
 	// Directory to keep downloaded web pages and generated ebook
 	Tmpdir string
+	// Title to be used in the ebook
+	BookTitle string
+	// add <br> for each line in <pre> block
+	AddPreBreaks bool
 }
 
 func New() *ConfigType {
@@ -28,6 +32,7 @@ func New() *ConfigType {
 		// defaults when config file is absent
 		UserAgent: "Mozilla/5.0 (X11; rv:84.0) Gecko/20100101 Firefox/84.0",
 		SleepSec:  3,
+		BookTitle: "Book Title",
 		Tmpdir:    path.Join(homedir, "Downloads", "htmltoebook"),
 	}
 	config.readConf()
@@ -64,7 +69,7 @@ func confLocation() string {
 
 // TitlesFname file is used to keep track of stripped html files and titles across runs.
 // Titles are used as mobi chapter titles.
-// Each line in the file is of the format "file_name\x00html_title"
+// Each line in the file is of the format "file_name\x00html_title\x00url"
 // TODO  mobi chapter order should be same as inputlinks, problem with failed runs
 func (c *ConfigType) TitlesFname() string {
 	return c.Tmpdir + "/titles.txt"

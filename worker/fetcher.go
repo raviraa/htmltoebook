@@ -1,16 +1,21 @@
 package worker
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 	"unicode"
 
+	"github.com/go-shiori/dom"
 	"github.com/go-shiori/go-readability"
+	"golang.org/x/net/html"
 )
 
 func (w *Worker) FetchStripUrls(ctx context.Context, urls []string) bool {
@@ -41,22 +46,19 @@ func (w *Worker) FetchStripUrls(ctx context.Context, urls []string) bool {
 		}
 		defer resp.Body.Close()
 
-		article, err := readability.FromReader(resp.Body, url)
-		if err != nil {
-			w.logerr("failed to parse ", url, err.Error())
-			continue
-		}
-
 		dstHTMLFile, err := os.Create(dstfname)
 		if err != nil {
 			log.Fatal(err)
 		}
 		defer dstHTMLFile.Close()
-		dstHTMLFile.WriteString(article.Content)
+		article, err := w.stripHTML(resp.Body, dstHTMLFile, url)
+		if err != nil {
+			continue
+		}
 
-		fmt.Fprintf(titlesfile, "%s\x00%s\n", dstfname, article.Title)
+		fmt.Fprintf(titlesfile, "%s\x00%s\x00%s\n", dstfname, article.Title, url)
 
-		w.loginfo(fmt.Sprintf("Fetched article with %d letters. Sleeping for %d seconds ", article.Length, w.conf.SleepSec))
+		w.loginfo(fmt.Sprintf("Fetched article with %d characters. Sleeping for %d seconds ", article.Length, w.conf.SleepSec))
 		select {
 		case <-time.After(time.Duration(w.conf.SleepSec * int(time.Second))):
 			// nothing to do on normal timeout
@@ -68,7 +70,7 @@ func (w *Worker) FetchStripUrls(ctx context.Context, urls []string) bool {
 	return true
 }
 
-// strips special charactors from a url
+// strips special characters from a url
 func urlToFname(url string) string {
 	var out []rune
 	for _, ch := range url {
@@ -96,4 +98,45 @@ func (w *Worker) fetchUrl(ctx context.Context, url string) (*http.Response, erro
 		return nil, err
 	}
 	return resp, nil
+}
+
+func (w *Worker) stripHTML(r io.Reader, out io.Writer, url string) (readability.Article, error) {
+
+	parser := readability.NewParser()
+	article, err := parser.Parse(r, url)
+	if err != nil {
+		w.logerr("failed to parse ", url, err.Error())
+		return article, err
+	}
+
+	htm := article.Content
+	if w.conf.AddPreBreaks {
+		htm = addPreDivBreaks(htm)
+	}
+
+	out.Write([]byte(htm))
+	return article, nil
+}
+
+// adds <br> at the end of each line of <pre> block
+func addPreDivBreaks(str string) string {
+	doc, err := html.Parse(strings.NewReader(str))
+	if err != nil {
+		log.Println(err)
+		return str
+	}
+
+	preNodes := dom.GetElementsByTagName(doc, "pre")
+	for _, node := range preNodes {
+		nodeTxt := dom.TextContent(node)
+		nodeTxt = strings.ReplaceAll(nodeTxt, "\n", "<br>\n")
+		dom.SetInnerHTML(node, nodeTxt)
+	}
+
+	b := new(bytes.Buffer)
+	err = html.Render(b, doc)
+	if err != nil {
+		log.Println(err)
+	}
+	return b.String()
 }

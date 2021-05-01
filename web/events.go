@@ -99,9 +99,11 @@ func onStart(ctx context.Context, s *live.Socket, p map[string]interface{}) (int
 	workerRunning = true
 	m.Running = true
 	runningMu.Unlock()
+
 	linksParam := live.ParamString(p, "links")
 	links := worker.SplitLinks(linksParam)
 	if len(links) > 0 {
+		m.Conf.BookTitle = live.ParamString(p, "BookTitle")
 		var ctx context.Context
 		ctx, m.cancel = context.WithCancel(context.Background())
 		m.worker.StartWorker(ctx, links)
