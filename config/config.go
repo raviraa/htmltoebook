@@ -1,11 +1,11 @@
 package config
 
 import (
+	"encoding/json"
+	"io/ioutil"
 	"log"
 	"os"
 	"path"
-
-	"github.com/BurntSushi/toml"
 )
 
 // ConfigType holds flags from command line, see flag options for details
@@ -21,7 +21,7 @@ type ConfigType struct {
 	// Directory to keep downloaded web pages and generated ebook
 	Tmpdir string
 	// Title to be used in the ebook
-	BookTitle string
+	BookTitle string `json:"-"`
 	// add <br> for each line in <pre> block
 	AddPreBreaks bool
 }
@@ -44,20 +44,27 @@ func (c *ConfigType) WriteConf() error {
 	if err != nil {
 		return err
 	}
-	enc := toml.NewEncoder(f)
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "\t")
 	return enc.Encode(c)
 }
 
 func (c *ConfigType) readConf() error {
-	_, err := toml.DecodeFile(confLocation(), c)
+	// _, err := toml.DecodeFile(confLocation(), c)
+	b, err := ioutil.ReadFile(confLocation())
 	if err != nil {
 		log.Println("Failure in reading config ", err)
 		return err
 	}
+	if err = json.Unmarshal(b, c); err != nil {
+		log.Println("Failure in parsing config ", err)
+		return err
+	}
+	log.Printf("%#v", c)
 	return nil
 }
 
-const confFileName = ".htmltoebook.toml"
+const confFileName = ".htmltoebook.json"
 
 func confLocation() string {
 	home, err := os.UserHomeDir()

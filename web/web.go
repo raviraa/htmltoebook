@@ -76,6 +76,7 @@ func NewWeb() {
 	http.Handle("/favicon.ico", mystatic)
 	http.Handle("/milligram.css", mystatic)
 	http.Handle("/progress.gif", mystatic)
+	http.Handle("/quit", mystatic)
 	http.Handle("/live.js", live.Javascript{})
 	http.Handle("/auto.js.map", live.JavascriptMap{})
 	port := os.Getenv("PORT")
@@ -110,5 +111,15 @@ func (webstatic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/progress.gif":
 		w.Header().Set("Content-Type", "image/gif")
 		w.Write(progressGif)
+	case "/quit":
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte("<h3>Please close the tab</h3>"))
+		go quitApplication()
 	}
+}
+
+func quitApplication() {
+	time.Sleep(3 * time.Second)
+	log.Println("Exiting application")
+	os.Exit(0)
 }

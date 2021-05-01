@@ -3,7 +3,6 @@ module github.com/raviraa/htmltoebook
 go 1.16
 
 require (
-	github.com/BurntSushi/toml v0.3.1
 	github.com/bmaupin/go-epub v0.5.3
 	github.com/go-shiori/dom v0.0.0-20201011032054-d6b74a54fe52
 	github.com/go-shiori/go-readability v0.0.0-20201011032228-bdc871772408
