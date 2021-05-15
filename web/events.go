@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
+	"time"
 
+	"github.com/raviraa/htmltoebook/htmlextract"
 	"github.com/raviraa/htmltoebook/types"
 	"github.com/raviraa/htmltoebook/worker"
 
@@ -26,6 +29,10 @@ const (
 	evsave = "evsave"
 	// Show/Hide Settings modal
 	evconf = "evconf"
+	// Show/Hide Html Snippet modal
+	evhtmlsnippet = "evhtmlsnippet"
+	// Form submit for html snippet
+	evsnippetsave = "evsnippetsave"
 )
 
 func setEvents(h *live.Handler) {
@@ -35,6 +42,8 @@ func setEvents(h *live.Handler) {
 	h.HandleEvent(evclear, onClear)
 	h.HandleEvent(evsave, onSave)
 	h.HandleEvent(evconf, onConf)
+	h.HandleEvent(evhtmlsnippet, onHtmlSnippet)
+	h.HandleEvent(evsnippetsave, onHtmlSnippetSave)
 
 	h.HandleSelf(evlogmsg, onLogMsg)
 	h.HandleSelf(evWorkerStopped, onWorkerStopped)
@@ -80,6 +89,12 @@ func onConf(ctx context.Context, s *live.Socket, p map[string]interface{}) (inte
 	return m, nil
 }
 
+func onHtmlSnippet(ctx context.Context, s *live.Socket, p map[string]interface{}) (interface{}, error) {
+	m := newModel(s)
+	m.ShowHtmlSnippet = !m.ShowHtmlSnippet
+	return m, nil
+}
+
 func onStop(ctx context.Context, s *live.Socket, p map[string]interface{}) (interface{}, error) {
 	m := newModel(s)
 	if m.cancel != nil {
@@ -91,18 +106,25 @@ func onStop(ctx context.Context, s *live.Socket, p map[string]interface{}) (inte
 
 func onStart(ctx context.Context, s *live.Socket, p map[string]interface{}) (interface{}, error) {
 	m := newModel(s)
-	runningMu.Lock()
-	if workerRunning {
-		m.worker.AppendLog("Worker already running", "warn")
-		return m, nil
-	}
-	workerRunning = true
-	m.Running = true
-	runningMu.Unlock()
 
-	linksParam := live.ParamString(p, "links")
+	// links textarea name could have random number at the end due to HtmlSnippet
+	var linksParam string
+	for k, v := range p {
+		if k[:5] == "links" {
+			linksParam = v.(string)
+		}
+	}
 	links := worker.SplitLinks(linksParam)
 	if len(links) > 0 {
+		runningMu.Lock()
+		if workerRunning {
+			m.worker.AppendLog("Worker already running", "warn")
+			return m, nil
+		}
+		workerRunning = true
+		m.Running = true
+		runningMu.Unlock()
+
 		m.Conf.BookTitle = live.ParamString(p, "BookTitle")
 		var ctx context.Context
 		ctx, m.cancel = context.WithCancel(context.Background())
@@ -135,4 +157,41 @@ func onSave(ctx context.Context, s *live.Socket, p map[string]interface{}) (inte
 	m.ShowConf = false
 	log.Printf("%+v, %+v", m.Conf, p)
 	return m, nil
+}
+
+func onHtmlSnippetSave(ctx context.Context, s *live.Socket, p map[string]interface{}) (interface{}, error) {
+	m := newModel(s)
+	m.ShowHtmlSnippet = false
+	htmlSnippet := live.ParamString(p, "HtmlSnippet")
+	anchorRegex := live.ParamString(p, "anchorRegex")
+	linkRegex := live.ParamString(p, "linkRegex")
+	baseUrl := live.ParamString(p, "baseUrl")
+	reverseList := live.ParamCheckbox(p, "reverseList")
+
+	log.Println("parsing html snippet of size: ", len(htmlSnippet))
+	links, err := htmlextract.ParseHtmlLinks(htmlSnippet, baseUrl, anchorRegex, linkRegex)
+	if err != nil {
+		m.worker.AppendLog("error extracting snippet links. "+err.Error(), "warn")
+		return m, nil
+	}
+	m.worker.AppendLog(fmt.Sprint("links in html snippet: ", len(links)), "info")
+	if len(links) > 0 {
+		if reverseList {
+			links = reverseSlice(links)
+		}
+		linksLines := strings.Join(links, "\n")
+		m.Links = linksLines
+		m.LinksName = fmt.Sprintf("links%v", time.Now().Unix())
+
+	}
+	return m, nil
+}
+
+func reverseSlice(a []string) []string {
+	for i, j := 0, len(a)-1; i < j; {
+		a[i], a[j] = a[j], a[i]
+		i++
+		j--
+	}
+	return a
 }

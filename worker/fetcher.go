@@ -67,6 +67,10 @@ func (w *Worker) FetchStripUrls(ctx context.Context, urls []string) bool {
 			return false
 		}
 	}
+	if titlesfile.Close() != nil {
+		w.logerr("error writing file. " + err.Error())
+		return false
+	}
 	return true
 }
 

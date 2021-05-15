@@ -22,10 +22,16 @@ var workerRunning bool
 var runningMu sync.Mutex
 
 type model struct {
-	LogMsgs  []types.LogMsg
-	ShowConf bool
-	Conf     *config.ConfigType
-	Running  bool
+	LogMsgs         []types.LogMsg
+	ShowConf        bool
+	ShowHtmlSnippet bool
+	Conf            *config.ConfigType
+	Running         bool
+	// Links is textarea data in form
+	Links string
+	// textarea value replace in dom has issues.
+	// need to update textarea name along with data
+	LinksName string
 
 	cancel context.CancelFunc
 	worker *worker.Worker
@@ -51,8 +57,10 @@ func newModel(s *live.Socket) *model {
 	if !ok {
 		conf := config.New()
 		return &model{
-			worker: worker.New(liveHandler, conf),
-			Conf:   conf,
+			worker:    worker.New(liveHandler, conf),
+			Links:     "https://en.wikipedia.org/wiki/Go_(programming_language)\nhttps://en.wikipedia.org/wiki/Python_(programming_language)\n",
+			LinksName: "links",
+			Conf:      conf,
 		}
 	}
 	return m
@@ -70,6 +78,9 @@ func NewWeb() {
 	}
 	liveHandler = h
 	setEvents(h)
+
+	// TODO set websocket max size in live/handler.go#serveWS
+	// c.SetReadLimit(1 << 20)
 
 	http.Handle("/", h)
 	mystatic := webstatic{}

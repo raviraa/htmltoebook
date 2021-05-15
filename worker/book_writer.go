@@ -87,7 +87,7 @@ func genIndex(m map[string][]string) string {
 	var s strings.Builder
 	s.WriteString("<p><ul>")
 	for _, v := range m {
-		s.WriteString(fmt.Sprintf("<li><a href='%s'>%s</a></li>", v[1], v[0]))
+		s.WriteString(fmt.Sprintf("<li><a href='%s'>%s</a></li>\n", v[1], v[0]))
 	}
 	s.WriteString("</ul></p>")
 	return s.String()
