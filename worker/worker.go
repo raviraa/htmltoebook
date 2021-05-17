@@ -18,16 +18,20 @@ import (
 
 // Worker handles fetching html links, stripping content and conversion to mobi format
 type Worker struct {
-	handler *live.Handler
-	conf    *config.ConfigType
-	client  *http.Client
+	handler  *live.Handler
+	conf     *config.ConfigType
+	client   *http.Client
+	imgCount int
 }
+
+// indicates an image in titles file
+const ADDIMAGE = "ADDIMAGE"
 
 func New(h *live.Handler, c *config.ConfigType) *Worker {
 	return &Worker{
 		handler: h,
 		conf:    c,
-		client:  &http.Client{Timeout: time.Second * 30},
+		client:  &http.Client{Timeout: time.Second * 90},
 	}
 }
 
@@ -37,7 +41,7 @@ func (w *Worker) StartWorker(ctx context.Context, links []string) {
 		log.Println("in start worker")
 		w.loginfo(fmt.Sprintf("Processing links: %v ", len(links)))
 		if w.FetchStripUrls(ctx, links) {
-			w.WriteMobi()
+			w.WriteBook()
 		}
 		w.notifyWebUiStop()
 	}()

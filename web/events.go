@@ -166,10 +166,11 @@ func onHtmlSnippetSave(ctx context.Context, s *live.Socket, p map[string]interfa
 	anchorRegex := live.ParamString(p, "anchorRegex")
 	linkRegex := live.ParamString(p, "linkRegex")
 	baseUrl := live.ParamString(p, "baseUrl")
+	excludeFilter := live.ParamCheckbox(p, "excludeFilter")
 	reverseList := live.ParamCheckbox(p, "reverseList")
 
 	log.Println("parsing html snippet of size: ", len(htmlSnippet))
-	links, err := htmlextract.ParseHtmlLinks(htmlSnippet, baseUrl, anchorRegex, linkRegex)
+	links, err := htmlextract.ParseHtmlLinks(htmlSnippet, baseUrl, anchorRegex, linkRegex, excludeFilter)
 	if err != nil {
 		m.worker.AppendLog("error extracting snippet links. "+err.Error(), "warn")
 		return m, nil

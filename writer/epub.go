@@ -23,3 +23,8 @@ func (e *epubWriter) AddSection(title, body string) {
 func (e *epubWriter) Write() error {
 	return e.book.Write(e.fname)
 }
+
+func (e *epubWriter) AddImage(imagefile, imageattrsrc string) error {
+	_, err := e.book.AddImage(imagefile, imageattrsrc)
+	return err
+}

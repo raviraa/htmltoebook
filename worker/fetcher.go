@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"strings"
 	"time"
 	"unicode"
@@ -50,8 +51,7 @@ func (w *Worker) FetchStripUrls(ctx context.Context, urls []string) bool {
 		if err != nil {
 			log.Fatal(err)
 		}
-		defer dstHTMLFile.Close()
-		article, err := w.stripHTML(resp.Body, dstHTMLFile, url)
+		article, err := w.cleanHTML(resp.Body, dstHTMLFile, url, titlesfile)
 		if err != nil {
 			continue
 		}
@@ -104,7 +104,8 @@ func (w *Worker) fetchUrl(ctx context.Context, url string) (*http.Response, erro
 	return resp, nil
 }
 
-func (w *Worker) stripHTML(r io.Reader, out io.Writer, url string) (readability.Article, error) {
+// converts to readable html and fetches images if necessary
+func (w *Worker) cleanHTML(r io.ReadCloser, out io.Writer, url string, titlesfile io.Writer) (readability.Article, error) {
 
 	parser := readability.NewParser()
 	article, err := parser.Parse(r, url)
@@ -112,10 +113,20 @@ func (w *Worker) stripHTML(r io.Reader, out io.Writer, url string) (readability.
 		w.logerr("failed to parse ", url, err.Error())
 		return article, err
 	}
+	r.Close()
 
 	htm := article.Content
-	if w.conf.AddPreBreaks {
-		htm = addPreDivBreaks(htm)
+	doc, err := html.Parse(strings.NewReader(htm))
+	if err != nil {
+		log.Println(err)
+	} else {
+		if w.conf.AddPreBreaks {
+			htm = addPreDivBreaks(doc)
+		}
+		if w.conf.IncludeImages {
+			htm = w.downloadImages(doc, titlesfile)
+		}
+
 	}
 
 	out.Write([]byte(htm))
@@ -123,12 +134,7 @@ func (w *Worker) stripHTML(r io.Reader, out io.Writer, url string) (readability.
 }
 
 // adds <br> at the end of each line of <pre> block
-func addPreDivBreaks(str string) string {
-	doc, err := html.Parse(strings.NewReader(str))
-	if err != nil {
-		log.Println(err)
-		return str
-	}
+func addPreDivBreaks(doc *html.Node) string {
 
 	preNodes := dom.GetElementsByTagName(doc, "pre")
 	for _, node := range preNodes {
@@ -138,9 +144,54 @@ func addPreDivBreaks(str string) string {
 	}
 
 	b := new(bytes.Buffer)
-	err = html.Render(b, doc)
+	err := html.Render(b, doc)
 	if err != nil {
 		log.Println(err)
 	}
 	return b.String()
+}
+
+func (w *Worker) downloadImages(doc *html.Node, titlesfile io.Writer) string {
+
+	preNodes := dom.GetElementsByTagName(doc, "img")
+	for _, node := range preNodes {
+		for _, attr := range node.Attr {
+			if attr.Key == "src" {
+				w.loginfo("fetching image " + attr.Val)
+				// TODO get correct context for cancel
+				resp, err := w.fetchUrl(context.Background(), attr.Val)
+				if err != nil {
+					w.logerr("error fetching image " + err.Error())
+					continue
+				}
+				w.imgCount++ // counter for unique image file name
+				// TODO set file extension from content type header
+				imgfname := fmt.Sprintf("%04d%s", w.imgCount, path.Base(attr.Val))
+				dstimgfname := w.conf.Tmpdir + "/" + imgfname
+				if err = writefile(dstimgfname, resp.Body); err != nil {
+					w.logerr("error fetching image " + err.Error())
+					continue
+				}
+				dom.SetAttribute(node, "src", fmt.Sprintf("../images/%s", imgfname))
+				fmt.Fprintf(titlesfile, "%s\x00%s\x00%s\n", dstimgfname, imgfname, ADDIMAGE)
+				// time.Sleep(time.Duration(w.conf.SleepSec) * time.Second)
+			}
+		}
+	}
+	b := new(bytes.Buffer)
+	err := html.Render(b, doc)
+	if err != nil {
+		log.Println(err)
+	}
+	return b.String()
+}
+
+func writefile(fname string, r io.ReadCloser) error {
+	defer r.Close()
+	f, err := os.Create(fname)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(f, r)
+	return err
 }

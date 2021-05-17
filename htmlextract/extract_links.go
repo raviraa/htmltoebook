@@ -8,9 +8,11 @@ import (
 	"golang.org/x/net/html"
 )
 
+// TODO change function args to a struct
+
 // extract anchor links from raw html snippet
 // filtered by regex for href and anchor text
-func ParseHtmlLinks(htm, baseUrl, anchorRegex, linkRegex string) (links []string, err error) {
+func ParseHtmlLinks(htm, baseUrl, anchorRegex, linkRegex string, excludeFilter bool) (links []string, err error) {
 	doc, err := html.Parse(strings.NewReader(htm))
 	if err != nil {
 		return
@@ -28,12 +30,14 @@ func ParseHtmlLinks(htm, baseUrl, anchorRegex, linkRegex string) (links []string
 		for _, attr := range node.Attr {
 			if attr.Key == "href" {
 				// fmt.Println(attr, dom.InnerText(node))
-				if linkRe.MatchString(attr.Val) && anchorRe.MatchString(dom.InnerText(node)) {
-					if len(attr.Val) > 0 && attr.Val[:4] != "http" {
-						links = append(links, baseUrl+attr.Val)
-					} else {
-						links = append(links, attr.Val)
-					}
+				match := linkRe.MatchString(attr.Val) && anchorRe.MatchString(dom.InnerText(node))
+				if excludeFilter && match || !excludeFilter && !match {
+					continue
+				}
+				if len(attr.Val) > 0 && attr.Val[:4] != "http" {
+					links = append(links, baseUrl+attr.Val)
+				} else {
+					links = append(links, attr.Val)
 				}
 			}
 		}

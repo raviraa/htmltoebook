@@ -24,6 +24,8 @@ type ConfigType struct {
 	BookTitle string `json:"-"`
 	// add <br> for each line in <pre> block
 	AddPreBreaks bool
+	// include imags
+	IncludeImages bool
 }
 
 func New() *ConfigType {
