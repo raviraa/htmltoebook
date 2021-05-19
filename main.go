@@ -1,33 +1,37 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"os"
 
+	"github.com/raviraa/htmltoebook/cmd"
 	"github.com/raviraa/htmltoebook/web"
 )
 
-/*
-func main2() {
-	// TODO check cli status
-
-		flag.StringVar(&config.Config.LinksFile, "l", "", "file containing http links to fetch (REQUIRED)")
-		flag.BoolVar(&config.Config.FailonError, "f", false, "exit when fetching any of the link fails")
-
-		flag.Parse()
-		if config.Config.LinksFile == "" {
-			flag.PrintDefaults()
-			os.Exit(2)
-		}
-
-		// links := worker.ReadLines(config.Config.LinksFile)
-		// worker.FetchStripUrls(links)
-		// worker.WriteMobi()
-
-}
-*/
+const usage = `Usage: htmltoebook [mode]
+Optional mode can be one of the following:
+ (w|web)		Starts web interface in browser (default)
+ (c|console)		Starts console mode urls editor with $EDITOR. Can also edit settings.
+ (s|snippet)		Starts console mode snippets editor with $EDITOR. Parses urls from given html code snippet.
+`
 
 func main() {
 	log.SetFlags(log.Lshortfile | log.Ltime)
+	var mode string
+	if len(os.Args) > 1 {
+		mode = os.Args[1]
+	}
 
-	web.NewWeb()
+	switch mode {
+	case "w", "web", "":
+		web.NewWeb()
+	case "c", "console":
+		cmd.RunLinks()
+	case "s", "snippet":
+		cmd.RunHtmlSnippet()
+	default:
+		fmt.Println(usage)
+		os.Exit(2)
+	}
 }

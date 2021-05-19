@@ -21,16 +21,18 @@ type Worker struct {
 	handler  *live.Handler
 	conf     *config.ConfigType
 	client   *http.Client
+	cmddone  chan bool
 	imgCount int
 }
 
 // indicates an image in titles file
 const ADDIMAGE = "ADDIMAGE"
 
-func New(h *live.Handler, c *config.ConfigType) *Worker {
+func New(h *live.Handler, cmdnotif chan bool, c *config.ConfigType) *Worker {
 	return &Worker{
 		handler: h,
 		conf:    c,
+		cmddone: cmdnotif,
 		client:  &http.Client{Timeout: time.Second * 90},
 	}
 }
@@ -49,9 +51,14 @@ func (w *Worker) StartWorker(ctx context.Context, links []string) {
 }
 
 func (w *Worker) notifyWebUiStop() {
-	w.handler.Broadcast(live.Event{
-		T: types.EvWorkerStopped,
-	})
+	if w.handler != nil {
+		w.handler.Broadcast(live.Event{
+			T: types.EvWorkerStopped,
+		})
+
+	} else {
+		w.cmddone <- true
+	}
 }
 
 func (w *Worker) AppendLog(msg, level string) {
@@ -96,16 +103,30 @@ func (w *Worker) loginfo(s ...string) {
 	w.loglog("info", s...)
 }
 
+var (
+	colorReset = "\033[0m"
+	colorRed   = "\033[31m"
+	colorGreen = "\033[32m"
+	cmdColors  = map[string]string{
+		"success": colorGreen,
+		"warn":    colorRed,
+	}
+)
+
 // loglog logs to both the ui and cli
 func (w *Worker) loglog(level string, logs ...string) {
 	// find calling function(2 levels deep) file name and line number
 	_, cfile, cline, _ := runtime.Caller(2)
 	cfileSpl := strings.Split(cfile, "/")
 	caller := fmt.Sprintf("%s:%d", cfileSpl[len(cfileSpl)-1], cline)
-	timenow := time.Now().Format("15:04:05 ")
+	timenow := time.Now().Format("15:04:05")
 	logsjoin := strings.Join(logs, " ")
 
-	fmt.Println(timenow, caller, logsjoin)
+	if color, ok := cmdColors[level]; ok {
+		fmt.Println(color+timenow, caller, logsjoin, colorReset)
+	} else {
+		fmt.Println(timenow, caller, logsjoin)
+	}
 	if w.handler != nil {
 		w.AppendLog(timenow+logsjoin, level)
 	}

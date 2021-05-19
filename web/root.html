@@ -104,19 +104,20 @@
         <div>
           <label for="linkRegex">Match filter regex for anchor tags(Optional)</label>
           <div class="column inline-inputs">
-          <input type="text" name="linkRegex" placeholder="link regex" />
-          <input type="text" name="anchorRegex" placeholder="name regex" />
+          <input type="text" name="UrlRegex" placeholder="url link regex" />
+          <input type="text" name="UrlNameRegex" placeholder="name regex" />
           <label style="display:inline">
-            <input type="checkbox" name="reverseList" /> Reverse List
+            <input type="checkbox" name="ReverseList" /> Reverse List
           </label>
           <label style="display:inline" title="Filter regex will exclude links matching them">
-            <input type="checkbox" name="excludeFilter" />Exclude filter
+            <input type="checkbox" name="ExcludeFilter" />Exclude filter
           </label>
           </div>
-          <input type="text" name="baseUrl" placeholder="Optional base url of page for relative links">
+          <input type="text" name="BaseUrl" placeholder="Optional base url of page for relative links">
           <label for="HtmlSnippet">Html code snippet to extract anchor links from</label>
           <textarea name="HtmlSnippet" spellcheck="false"
-           style="height: 18rem" cols="40">Html snippet</textarea>
+           style="height: 18rem" cols="40"><p>Html snippet here</p>
+          </textarea>
 
           <input class="mybtn" type="submit" value="Update Links">
           </div>

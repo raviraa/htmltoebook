@@ -81,6 +81,7 @@ func parseTitlesFile(titleFname string) (fnames []string, titles map[string][]st
 			continue
 		}
 		// Each line in the file is of the format "file_name\x00html_title\x00url"
+		// TODO use fmt.Sscanf
 		spl := strings.SplitN(line, "\x00", 3)
 		if len(spl) != 3 {
 			err = errors.New("Invalid line in titles file " + line)

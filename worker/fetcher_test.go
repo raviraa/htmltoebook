@@ -2,6 +2,10 @@ package worker
 
 import (
 	"bytes"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -15,7 +19,7 @@ func TestStripHtml(t *testing.T) {
 	testhtml, err := os.Open("testdata/testhtml.html")
 	require.Nil(t, err)
 	defer testhtml.Close()
-	w := Worker{conf: &config.ConfigType{AddPreBreaks: true}}
+	w := Worker{conf: &config.ConfigType{PreBreaks: true}}
 	b := new(bytes.Buffer)
 
 	_, err = w.cleanHTML(testhtml, b, "http://localhost", nil)
@@ -52,16 +56,22 @@ func TestAddPreBreaks(t *testing.T) {
 }
 
 func TestDownloadImages(t *testing.T) {
-	testhtml, err := os.Open("testdata/testhtml.html")
-	require.Nil(t, err)
-	defer testhtml.Close()
-	w := New(nil, &config.ConfigType{Tmpdir: "."})
-
+	testhtml, _ := os.Open("testdata/testhtml.html")
+	testhtm, _ := ioutil.ReadAll(testhtml)
+	testhtml.Close()
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("content-type", "image/png")
+		f, _ := os.Open("../screenshot.png")
+		io.Copy(w, f)
+	}))
+	w := New(nil, nil, &config.ConfigType{Tmpdir: "."})
+	htm := strings.ReplaceAll(string(testhtm), "SRCIMG", ts.URL+"/test")
 	b := new(bytes.Buffer)
-	doc, err := html.Parse(testhtml)
+
+	doc, err := html.Parse(strings.NewReader(htm))
 	require.Nil(t, err)
-	// TODO use httptest server
 	out := w.downloadImages(doc, b)
-	require.Contains(t, out, "../images/0001footer-gopher.jpg")
-	require.Equal(t, "./0001footer-gopher.jpg\x000001footer-gopher.jpg\x00ADDIMAGE\n", b.String())
+	require.Contains(t, out, "../images/0001test.png")
+	require.Equal(t, "./0001test.png\x000001test.png\x00ADDIMAGE\n", b.String())
+	os.Remove("0001test.png")
 }

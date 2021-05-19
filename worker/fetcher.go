@@ -120,7 +120,7 @@ func (w *Worker) cleanHTML(r io.ReadCloser, out io.Writer, url string, titlesfil
 	if err != nil {
 		log.Println(err)
 	} else {
-		if w.conf.AddPreBreaks {
+		if w.conf.PreBreaks {
 			htm = addPreDivBreaks(doc)
 		}
 		if w.conf.IncludeImages {
@@ -151,8 +151,8 @@ func addPreDivBreaks(doc *html.Node) string {
 	return b.String()
 }
 
+// downloads images in doc(DOM), and updates src attribute to relative file path(../images/img.png)
 func (w *Worker) downloadImages(doc *html.Node, titlesfile io.Writer) string {
-
 	preNodes := dom.GetElementsByTagName(doc, "img")
 	for _, node := range preNodes {
 		for _, attr := range node.Attr {
@@ -165,8 +165,13 @@ func (w *Worker) downloadImages(doc *html.Node, titlesfile io.Writer) string {
 					continue
 				}
 				w.imgCount++ // counter for unique image file name
-				// TODO set file extension from content type header
-				imgfname := fmt.Sprintf("%04d%s", w.imgCount, path.Base(attr.Val))
+				// set file extension from Content-Type
+				imgext := ""
+				ctype := resp.Header.Get("Content-Type")
+				if len(ctype) > 6 && ctype[:6] == "image/" {
+					imgext = "." + ctype[6:]
+				}
+				imgfname := fmt.Sprintf("%04d%s%s", w.imgCount, path.Base(attr.Val), imgext)
 				dstimgfname := w.conf.Tmpdir + "/" + imgfname
 				if err = writefile(dstimgfname, resp.Body); err != nil {
 					w.logerr("error fetching image " + err.Error())

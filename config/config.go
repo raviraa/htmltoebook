@@ -8,31 +8,29 @@ import (
 	"path"
 )
 
-// ConfigType holds flags from command line, see flag options for details
 type ConfigType struct {
-	// UserAgent to use for http client
-	UserAgent string
-	// FailonError tells worker to exit on any network issues
-	FailonError bool
-	// KeepTmpFiles keeps intermediate html files after successful mobi creation
-	KeepTmpFiles bool
-	// SleepSec seconds to sleep between each http request
-	SleepSec int
-	// Directory to keep downloaded web pages and generated ebook
-	Tmpdir string
-	// Title to be used in the ebook
-	BookTitle string `json:"-"`
-	// add <br> for each line in <pre> block
-	AddPreBreaks bool
-	// include imags
-	IncludeImages bool
+	UserAgent string `comment:"UserAgent to use for http client"`
+
+	FailonError bool `comment:"Exit immediately on any network errors"`
+
+	KeepTmpFiles bool `comment:"Do not remove intermediate html files after successful ebook creation"`
+
+	SleepSec int `comment:"SleepSec seconds to sleep between each http request"`
+
+	Tmpdir string `comment:"Directory to keep downloaded web pages and generated ebook"`
+
+	BookTitle string `comment:"Title to be used in the ebook"`
+
+	PreBreaks bool `comment:"Add <br> for each line in <pre> block. Needed for some old ebook readers"`
+
+	IncludeImages bool `comment:"Download images included in web page and add them to book"`
 }
 
 func New() *ConfigType {
 	homedir, _ := os.UserHomeDir()
 	config := ConfigType{
 		// defaults when config file is absent
-		UserAgent: "Mozilla/5.0 (X11; rv:84.0) Gecko/20100101 Firefox/84.0",
+		UserAgent: "Mozilla/5.0",
 		SleepSec:  3,
 		BookTitle: "Book Title",
 		Tmpdir:    path.Join(homedir, "Downloads", "htmltoebook"),
@@ -62,7 +60,6 @@ func (c *ConfigType) readConf() error {
 		log.Println("Failure in parsing config ", err)
 		return err
 	}
-	log.Printf("%#v", c)
 	return nil
 }
 
@@ -77,9 +74,8 @@ func confLocation() string {
 }
 
 // TitlesFname file is used to keep track of stripped html files and titles across runs.
-// Titles are used as mobi chapter titles.
+// Titles are used as book chapter titles.
 // Each line in the file is of the format "file_name\x00html_title\x00url"
-// TODO  mobi chapter order should be same as inputlinks, problem with failed runs
 func (c *ConfigType) TitlesFname() string {
 	return c.Tmpdir + "/titles.txt"
 }

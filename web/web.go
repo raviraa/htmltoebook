@@ -57,7 +57,7 @@ func newModel(s *live.Socket) *model {
 	if !ok {
 		conf := config.New()
 		return &model{
-			worker:    worker.New(liveHandler, conf),
+			worker:    worker.New(liveHandler, nil, conf),
 			Links:     "https://en.wikipedia.org/wiki/Go_(programming_language)\nhttps://en.wikipedia.org/wiki/Python_(programming_language)\n",
 			LinksName: "links",
 			Conf:      conf,

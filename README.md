@@ -6,13 +6,7 @@ Converts html webpages to a readable ebook. Fetches the list of html web pages, 
 * Two user interfaces supported, cli and webui. Launches webui by default.
 * By default ebook is generated in folder $HOME/Downloads/htmltoebook
 * Settings are stored in configuration file at $HOME/.htmltoebook.json
+* Range of links can be specified. Ex. `http://example/page{{1-3}}/content`
 * Built releases [available](https://github.com/raviraa/htmltoebook/releases) for linux, windows and mac darwin. Only linux version is tested.
 
 ![Screenshot](screenshot.png)
-
-## TODO
-* Support epub format, zip file
-* Add system tray icon
-* Add webview to link with platform webkit, without need to open link in external browser
-* UI to generate range of URLs that could expand in a given numeric range
-* Generate release binaries using Actions.
