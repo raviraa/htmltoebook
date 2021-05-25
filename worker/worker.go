@@ -38,9 +38,9 @@ func New(h *live.Handler, cmdnotif chan bool, c *config.ConfigType) *Worker {
 }
 
 func (w *Worker) StartWorker(ctx context.Context, links []string) {
-	os.MkdirAll(w.conf.Tmpdir, 0750)
+	os.MkdirAll(w.conf.Tmpdir(), 0750)
 	go func() {
-		log.Println("in start worker")
+		log.Println("Starting worker")
 		w.loginfo(fmt.Sprintf("Processing links: %v ", len(links)))
 		if w.FetchStripUrls(ctx, links) {
 			w.WriteBook()
@@ -76,7 +76,6 @@ func (w *Worker) AppendLog(msg, level string) {
 
 func (w *Worker) ClearTmpDir() {
 	fnames, _, err := parseTitlesFile(w.conf.TitlesFname())
-	log.Println(err, fnames)
 	if err != nil || len(fnames) == 0 {
 		w.loginfo("No intermediate files to clean up")
 		return
@@ -88,6 +87,7 @@ func (w *Worker) ClearTmpDir() {
 		}
 	}
 	os.Remove(w.conf.TitlesFname())
+	os.Remove(w.conf.Tmpdir())
 	w.loginfo(fmt.Sprintf("Removed %d/%d files", cleaned, len(fnames)))
 }
 

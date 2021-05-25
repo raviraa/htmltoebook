@@ -81,8 +81,8 @@
     <h6 style="text-align: center;">Edit Configuration</h6>
         <form id="form2" live-submit="evsave">
         <div>
-          <label for="Tmpdir">Folder to save ebook</label>
-          <input type="text" name="Tmpdir" value="{{.Conf.Tmpdir}}">
+          <label for="DownloadDir">Folder to save ebook</label>
+          <input type="text" name="DownloadDir" value="{{.Conf.DownloadDir}}">
           <label for="SleepSec">Sleep interval between fetching links in seconds</label>
           <input type="number" name="SleepSec" value="{{.Conf.SleepSec}}">
           <input type="checkbox" name="FailonError" {{if .Conf.FailonError}}checked{{end}}>

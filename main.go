@@ -27,7 +27,7 @@ func main() {
 	case "w", "web", "":
 		web.NewWeb()
 	case "c", "console":
-		cmd.RunLinks()
+		cmd.RunLinks("")
 	case "s", "snippet":
 		cmd.RunHtmlSnippet()
 	default:

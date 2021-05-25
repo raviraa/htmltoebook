@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"strings"
 
 	"github.com/raviraa/htmltoebook/writer"
@@ -17,7 +16,7 @@ func (w *Worker) WriteBook() error {
 		return err
 	}
 	w.loginfo("Writing ebook")
-	outfname := fmt.Sprintf("%s/%s.epub", w.conf.Tmpdir, w.conf.BookTitle)
+	outfname := fmt.Sprintf("%s/%s.epub", w.conf.DownloadDir, w.conf.BookTitle)
 	book := writer.NewEpub(w.conf.BookTitle, outfname)
 
 	if len(inpfiles) == 0 {
@@ -54,12 +53,7 @@ func (w *Worker) WriteBook() error {
 	w.logsuccess("Sucessfully written " + outfname)
 
 	if !w.conf.KeepTmpFiles {
-		w.loginfo("Cleaning temporary files")
-		for _, fname := range inpfiles {
-			os.Remove(fname)
-		}
-		os.Remove(w.conf.TitlesFname())
-
+		w.ClearTmpDir()
 	}
 	return nil
 }

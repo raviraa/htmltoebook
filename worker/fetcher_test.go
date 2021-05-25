@@ -64,7 +64,7 @@ func TestDownloadImages(t *testing.T) {
 		f, _ := os.Open("../screenshot.png")
 		io.Copy(w, f)
 	}))
-	w := New(nil, nil, &config.ConfigType{Tmpdir: "."})
+	w := New(nil, nil, &config.ConfigType{DownloadDir: "."})
 	htm := strings.ReplaceAll(string(testhtm), "SRCIMG", ts.URL+"/test")
 	b := new(bytes.Buffer)
 

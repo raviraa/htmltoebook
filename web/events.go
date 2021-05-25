@@ -150,7 +150,7 @@ func onSave(ctx context.Context, s *live.Socket, p map[string]interface{}) (inte
 	m.Conf.SleepSec = live.ParamInt(p, "SleepSec")
 	m.Conf.FailonError = live.ParamCheckbox(p, "FailonError")
 	m.Conf.KeepTmpFiles = live.ParamCheckbox(p, "KeepTmpFiles")
-	m.Conf.Tmpdir = live.ParamString(p, "Tmpdir")
+	m.Conf.DownloadDir = live.ParamString(p, "DownloadDir")
 	if err := m.Conf.WriteConf(); err != nil {
 		m.worker.AppendLog("Error saving config file. "+err.Error(), "warn")
 	}

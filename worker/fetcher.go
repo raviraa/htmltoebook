@@ -28,7 +28,7 @@ func (w *Worker) FetchStripUrls(ctx context.Context, urls []string) bool {
 	defer titlesfile.Close()
 
 	for i, url := range urls {
-		dstfname := w.conf.Tmpdir + "/" + urlToFname(url)
+		dstfname := w.conf.Tmpdir() + "/" + urlToFname(url)
 		if _, err := os.Stat(dstfname); err == nil {
 			w.loginfo("Ignoring cached url ", url)
 			continue
@@ -172,7 +172,7 @@ func (w *Worker) downloadImages(doc *html.Node, titlesfile io.Writer) string {
 					imgext = "." + ctype[6:]
 				}
 				imgfname := fmt.Sprintf("%04d%s%s", w.imgCount, path.Base(attr.Val), imgext)
-				dstimgfname := w.conf.Tmpdir + "/" + imgfname
+				dstimgfname := w.conf.Tmpdir() + "/" + imgfname
 				if err = writefile(dstimgfname, resp.Body); err != nil {
 					w.logerr("error fetching image " + err.Error())
 					continue

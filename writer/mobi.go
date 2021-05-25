@@ -10,7 +10,7 @@ func (w *Worker) WriteMobi() error {
 		return err
 	}
 	w.loginfo("Writing mobi file")
-	outfname := fmt.Sprintf("%s/%s.mobi", w.conf.Tmpdir, w.conf.BookTitle)
+	outfname := fmt.Sprintf("%s/%s.mobi", w.conf.Tmpdir(), w.conf.BookTitle)
 	m, err := mobi.NewWriter(outfname)
 	if err != nil {
 		w.logerr("Failed opening mobi file ", outfname, err.Error())

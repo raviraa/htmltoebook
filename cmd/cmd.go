@@ -15,7 +15,7 @@ import (
 
 const tmpfname = "/tmp/htmltoebook.toml"
 
-const linksmsg = ` #Add web links below
+const Linksmsg = ` #Add web links below
  #Each link in a separate line
  #Lines that do not start with http or https will be ignored
  #Numeric range can be used: http://example.com/page{1-10}}"
@@ -24,7 +24,8 @@ https://blog.golang.org/go1.15
 https://blog.golang.org/go1.16
 `
 
-func RunLinks() {
+func RunLinks(linksmsg string) {
+	linksmsg = Linksmsg + linksmsg
 	if err := writeEditorFile(*config.New(), linksmsg); err != nil {
 		log.Fatal("failed generating links template. ", err)
 	}
@@ -73,12 +74,14 @@ func RunHtmlSnippet() {
 			return
 		}
 		// log.Printf("%#v\n", *prnew)
-		fmt.Printf("%s\nFound %d links\n", strings.Join(links, "\n"), len(links))
+		linkslines := strings.Join(links, "\n")
+		fmt.Printf("%s\nFound %d links\n", linkslines, len(links))
 		if !cmdAsk("Proceed with the links(y), or Retry(n)") {
 			continue
 		}
-		conf := config.New()
-		startWorker(conf, links)
+		// conf := config.New()
+		// startWorker(conf, links)
+		RunLinks(linkslines)
 		break
 	}
 }
@@ -104,8 +107,8 @@ func cmdAsk(q string) bool {
 
 func startWorker(c *config.ConfigType, links []string) {
 	log.Printf("Starting with %v links\n", len(links))
-	ch := make(chan bool)
-	w := worker.New(nil, ch, c)
+	wdone := make(chan bool)
+	w := worker.New(nil, wdone, c)
 	w.StartWorker(context.Background(), links)
-	<-ch
+	<-wdone
 }
