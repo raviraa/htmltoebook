@@ -1,3 +1,6 @@
+/*
+Extract html anchor links from provided html code. Used in snippet mode.
+*/
 package htmlextract
 
 import (

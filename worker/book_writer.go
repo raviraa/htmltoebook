@@ -4,8 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path"
 	"strings"
 
+	"github.com/raviraa/htmltoebook/config"
 	"github.com/raviraa/htmltoebook/writer"
 )
 
@@ -15,9 +18,20 @@ func (w *Worker) WriteBook() error {
 		w.logerr("unable to read intermediate file list. ", err.Error())
 		return err
 	}
-	w.loginfo("Writing ebook")
-	outfname := fmt.Sprintf("%s/%s.epub", w.conf.DownloadDir, w.conf.BookTitle)
-	book := writer.NewEpub(w.conf.BookTitle, outfname)
+	booktype := config.EbookType
+	w.loginfo("Writing ebook " + booktype)
+	outfname := path.Join(w.conf.DownloadDir, fmt.Sprintf("%s.%s", w.conf.BookTitle, booktype))
+
+	var book writer.BookWriter
+	if booktype == "mobi" {
+		book = writer.NewMobi(w.conf.BookTitle, outfname)
+	} else {
+		book = writer.NewEpub(w.conf.BookTitle, outfname)
+	}
+	if book == nil {
+		w.logerr("Unable to create book writer")
+		os.Exit(2)
+	}
 
 	if len(inpfiles) == 0 {
 		err = errors.New("error fetching any of the links")
@@ -45,12 +59,12 @@ func (w *Worker) WriteBook() error {
 
 		}
 	}
-	book.AddSection("Index", genIndex(titleUrls))
+	book.AddSection("Index", genIndex(inpfiles, titleUrls))
 
 	if err := book.Write(); err != nil {
 		w.logerr("Error writing ebook " + err.Error())
 	}
-	w.logsuccess("Sucessfully written " + outfname)
+	w.logsuccess("Successfully written " + outfname)
 
 	if !w.conf.KeepTmpFiles {
 		w.ClearTmpDir()
@@ -87,15 +101,18 @@ func parseTitlesFile(titleFname string) (fnames []string, titles map[string][]st
 	return
 }
 
-func genIndex(m map[string][]string) string {
+func genIndex(inpfiles []string, m map[string][]string) string {
 	var s strings.Builder
-	s.WriteString("<p><ul>")
-	for _, v := range m {
+	s.WriteString("<h3>Index Links</h3>\n<pre>\n")
+	// for _, v := range m {
+	for _, inpfile := range inpfiles {
+		v := m[inpfile]
 		if v[1] == ADDIMAGE {
 			continue
 		}
-		s.WriteString(fmt.Sprintf("<li><a href='%s'>%s</a></li>\n", v[1], v[0]))
+		// s.WriteString(fmt.Sprintf("<div><a href='%s'>%s</a></div>\n", v[1], v[0]))
+		s.WriteString(v[1] + "\n")
 	}
-	s.WriteString("</ul></p>")
+	s.WriteString("</pre>")
 	return s.String()
 }

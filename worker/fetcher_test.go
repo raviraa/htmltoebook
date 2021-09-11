@@ -16,19 +16,20 @@ import (
 )
 
 func TestStripHtml(t *testing.T) {
-	testhtml, err := os.Open("testdata/testhtml.html")
+	testhtml, err := ioutil.ReadFile("testdata/testhtml.html")
 	require.Nil(t, err)
-	defer testhtml.Close()
 	w := Worker{conf: &config.ConfigType{PreBreaks: true}}
 	b := new(bytes.Buffer)
 
-	_, err = w.cleanHTML(testhtml, b, "http://localhost", nil)
+	_, err = w.cleanHTML(string(testhtml), b, "http://localhost", nil)
 	require.Nil(t, err)
 	out := b.String()
 	require.NotContains(t, out, "contains interface{}")
 	require.Contains(t, out, "main() {<br/")
 	require.Contains(t, out, "localhost/test.png")
 	require.NotContains(t, out, `("script message")`)
+	require.NotContains(t, out, "<html>")
+	require.Contains(t, out, "<h3>Test File Title</h3")
 }
 
 func TestAddPreBreaks(t *testing.T) {
@@ -50,7 +51,7 @@ func TestAddPreBreaks(t *testing.T) {
 	`
 	doc, err := html.Parse(strings.NewReader(htm))
 	require.Nil(t, err)
-	out := addPreDivBreaks(doc)
+	out := string(addPreDivBreaks(doc))
 	require.Contains(t, out, "two(){<br/>")
 	require.Contains(t, out, "main(){<br/>")
 }
@@ -70,8 +71,19 @@ func TestDownloadImages(t *testing.T) {
 
 	doc, err := html.Parse(strings.NewReader(htm))
 	require.Nil(t, err)
-	out := w.downloadImages(doc, b)
+	out := string(w.downloadImages(doc, b))
 	require.Contains(t, out, "../images/0001test.png")
-	require.Equal(t, "./0001test.png\x000001test.png\x00ADDIMAGE\n", b.String())
+	require.Equal(t, "/tmp/0001test.png\x000001test.png\x00ADDIMAGE\n", b.String())
 	os.Remove("0001test.png")
+}
+
+func TestStripHtmlPara(t *testing.T) {
+	testhtml, err := ioutil.ReadFile("testdata/testhtmlpara.html")
+	require.Nil(t, err)
+	w := Worker{conf: &config.ConfigType{UseTextParser: true}}
+	b := new(bytes.Buffer)
+
+	_, err = w.cleanHTML(string(testhtml), b, "http://localhost", nil)
+	require.Nil(t, err)
+	require.Contains(t, b.String(), "one<br>")
 }

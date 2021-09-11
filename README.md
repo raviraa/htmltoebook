@@ -2,6 +2,7 @@
 Converts html webpages to a readable ebook. Fetches the list of html web pages, strips out readable content of the pages and creates an ebook that can be used in phones or ebook-readers.
 
 * Fetches and cleans up the webpages as readable paragraphs using [readability](github.com/go-shiori/go-readability) package.
+* Option to download pages using chrome, should suport pages requiring javascript
 * Currently supported output format is epub
 * Two user interfaces supported, cli and webui. Launches webui by default.
 * By default ebook is generated in folder $HOME/Downloads/htmltoebook

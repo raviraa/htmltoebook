@@ -22,10 +22,11 @@ func ReadLines(fname string) ([]string, error) {
 	return links, nil
 }
 
-// expands http://two.com/page{{1-3}}/content to 3 links
 var rangeLinks = regexp.MustCompile(`http.*{{(.*)}}.*`)
 var rangeLinksReplace = regexp.MustCompile(`({{.*}})`)
 
+// expands links on each line.
+// http://two.com/page{{1-3}}/content to 3 links
 func SplitLinks(s string) []string {
 	// strip out invalid links, whitespaces
 	splits := strings.Split(s, "\n")

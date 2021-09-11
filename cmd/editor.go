@@ -11,9 +11,9 @@ import (
 	toml "github.com/pelletier/go-toml"
 )
 
-var seperator = strings.Repeat("#", 60)
+var separator = strings.Repeat("#", 60)
 
-// marshals value to toml. writes toml, seperator and tailmsg to file
+// marshals value to toml. writes toml, separator and tailmsg to file
 func writeEditorFile(v interface{}, tailmsg string) error {
 	tomlb, err := toml.Marshal(v)
 	if err != nil {
@@ -24,8 +24,8 @@ func writeEditorFile(v interface{}, tailmsg string) error {
 		return err
 	}
 	f.Write(tomlb)
-	fmt.Fprintf(f, "\n%s\n", seperator)
-	f.WriteString(tailmsg)
+	fmt.Fprintf(f, "\n%s\n", separator)
+	fmt.Fprintf(f, "%s\n", tailmsg)
 	return f.Close()
 }
 
@@ -44,7 +44,7 @@ func runEditor(v interface{}) (tailmsg string, err error) {
 	if err != nil {
 		return "", err
 	}
-	spl := bytes.Split(b, []byte(seperator))
+	spl := bytes.Split(b, []byte(separator))
 	if len(spl) != 2 {
 		return "", fmt.Errorf("could not find 2 segments in edited file. found %d segments", len(spl))
 	}

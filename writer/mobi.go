@@ -1,64 +1,48 @@
 package writer
 
-/*
-import  "github.com/766b/mobi"
-TODO
-func (w *Worker) WriteMobi() error {
-	inpfiles, titles, err := parseTitlesFile(w.conf.TitlesFname())
+import "github.com/766b/mobi"
+
+type mobiWriter struct {
+	book *mobi.MobiWriter
+}
+
+func NewMobi(title, fname string) BookWriter {
+	m, err := mobi.NewWriter(fname)
 	if err != nil {
-		w.logerr("unable to read intermediate file list. ", err.Error())
-		return err
-	}
-	w.loginfo("Writing mobi file")
-	outfname := fmt.Sprintf("%s/%s.mobi", w.conf.Tmpdir(), w.conf.BookTitle)
-	m, err := mobi.NewWriter(outfname)
-	if err != nil {
-		w.logerr("Failed opening mobi file ", outfname, err.Error())
-		return err
+		return nil
 	}
 
-	m.Title(w.conf.BookTitle)
+	m.Title(title)
 	m.Compression(mobi.CompressionNone) // LZ77 compression is also possible using  mobi.CompressionPalmDoc
 	// m.Compression(mobi.CompressionPalmDoc)
-
-	// Add cover image
-	// m.AddCover("data/cover.jpg", "data/thumbnail.jpg")
-
 	// Meta data
-	m.NewExthRecord(mobi.EXTH_DOCTYPE, "EBOK")
-	m.NewExthRecord(mobi.EXTH_AUTHOR, "Book Author Name")
+	// m.NewExthRecord(mobi.EXTH_DOCTYPE, "EBOK")
+	// m.NewExthRecord(mobi.EXTH_AUTHOR, "Book Author Name")
 
-	if len(inpfiles) == 0 {
-		err = errors.New("error fetching any of the links")
-		w.logerr(err.Error())
-		return err
-	}
-	w.logsuccess(fmt.Sprintf("Writing %d link(s) to mobi file", len(inpfiles)))
+	return &mobiWriter{m}
+}
 
-	for _, fname := range inpfiles {
-		w.loginfo("Adding ", titles[fname])
-		b, err := ioutil.ReadFile(fname)
-		if err != nil {
-			err = fmt.Errorf("error reading intermediate saved html file. %w", err)
-			w.logerr(err.Error())
-			return err
-		}
-		m.NewChapter(titles[fname], b)
+func (e *mobiWriter) AddSection(title, body string) {
+	// e.book.AddSection(body, title, "", "")
+	// m.NewChapter(titles[fname], b)
+	e.book.NewChapter(title, []byte(body))
+}
+
+func (e *mobiWriter) Write() error {
+	e.book.Write()
+	return nil
+}
+
+func (e *mobiWriter) AddImage(imagefile, imageattrsrc string) error {
+	return nil
+}
+
+/*
+
+
 	}
 	// Output MOBI File
 	m.Write()
-	w.logsuccess("Sucessfully written " + outfname)
-
-	if !w.conf.KeepTmpFiles {
-		w.loginfo("Cleaning temporary files")
-		for _, fname := range inpfiles {
-			os.Remove(fname)
-		}
-		os.Remove(w.conf.TitlesFname())
-
-	}
-	return nil
-}
 
 
 */

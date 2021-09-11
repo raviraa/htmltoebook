@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -9,29 +10,35 @@ import (
 	"github.com/raviraa/htmltoebook/web"
 )
 
-const usage = `Usage: htmltoebook [mode]
+func usage() {
+	fmt.Print(`Usage: htmltoebook [flags] [mode]
 Optional mode can be one of the following:
- (w|web)		Starts web interface in browser (default)
- (c|console)		Starts console mode urls editor with $EDITOR. Can also edit settings.
+ (w|web)		Starts web interface in browser
+ (c|console)		Starts console mode urls editor with $EDITOR. Can also edit settings. (default)
  (s|snippet)		Starts console mode snippets editor with $EDITOR. Parses urls from given html code snippet.
-`
+
+`)
+	flag.PrintDefaults()
+}
 
 func main() {
-	log.SetFlags(log.Lshortfile | log.Ltime)
 	var mode string
-	if len(os.Args) > 1 {
-		mode = os.Args[1]
+	log.SetFlags(log.Lshortfile | log.Ltime)
+	flag.Usage = usage
+	flag.Parse()
+	if len(flag.Args()) == 1 {
+		mode = flag.Args()[0]
 	}
 
 	switch mode {
-	case "w", "web", "":
+	case "w", "web":
 		web.NewWeb()
-	case "c", "console":
+	case "c", "console", "": // default mode
 		cmd.RunLinks("")
 	case "s", "snippet":
 		cmd.RunHtmlSnippet()
 	default:
-		fmt.Println(usage)
+		usage()
 		os.Exit(2)
 	}
 }

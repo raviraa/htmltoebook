@@ -1,0 +1,14 @@
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  GREETING: Hello, World!
+
+dotenv: ['.env']
+
+tasks:
+  default:
+    cmds:
+      - echo "{{.GREETING}}"
+      - echo $HOME $FOO

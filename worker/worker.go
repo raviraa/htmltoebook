@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/launcher"
 	"github.com/raviraa/htmltoebook/config"
 	"github.com/raviraa/htmltoebook/types"
 
@@ -21,6 +23,8 @@ type Worker struct {
 	handler  *live.Handler
 	conf     *config.ConfigType
 	client   *http.Client
+	browser  *rod.Browser
+  launcher *launcher.Launcher
 	cmddone  chan bool
 	imgCount int
 }
@@ -29,12 +33,17 @@ type Worker struct {
 const ADDIMAGE = "ADDIMAGE"
 
 func New(h *live.Handler, cmdnotif chan bool, c *config.ConfigType) *Worker {
-	return &Worker{
+	w := &Worker{
 		handler: h,
 		conf:    c,
 		cmddone: cmdnotif,
 		client:  &http.Client{Timeout: time.Second * 90},
 	}
+	if w.conf.ChromeDownload {
+		w.logsuccess("===========Using chrome to download ===============")
+	}
+
+	return w
 }
 
 func (w *Worker) StartWorker(ctx context.Context, links []string) {
@@ -45,6 +54,7 @@ func (w *Worker) StartWorker(ctx context.Context, links []string) {
 		if w.FetchStripUrls(ctx, links) {
 			w.WriteBook()
 		}
+    w.stopChrome()
 		w.notifyWebUiStop()
 	}()
 

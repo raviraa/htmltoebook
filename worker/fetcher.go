@@ -6,8 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
+	nurl "net/url"
 	"os"
 	"path"
 	"strings"
@@ -16,6 +19,7 @@ import (
 
 	"github.com/go-shiori/dom"
 	"github.com/go-shiori/go-readability"
+	"github.com/raviraa/htmltoebook/config"
 	"golang.org/x/net/html"
 )
 
@@ -31,36 +35,73 @@ func (w *Worker) FetchStripUrls(ctx context.Context, urls []string) bool {
 		dstfname := w.conf.Tmpdir() + "/" + urlToFname(url)
 		if _, err := os.Stat(dstfname); err == nil {
 			w.loginfo("Ignoring cached url ", url)
+			if w.conf.ChromeDownload && w.browser == nil {
+				// chrome is started only each ChromeRestartNum. this will start it in case of cached and not mod first
+				w.resetChrome()
+			}
 			continue
 		}
 		w.loginfo(fmt.Sprintf("Fetching link %d/%d: %v", i+1, len(urls), url))
 
-		resp, err := w.fetchUrl(ctx, url)
-		if err != nil {
-			w.logerr(url, err.Error())
-			if w.conf.FailonError {
-				// log.Fatal(err)
-				w.logerr(err.Error())
-				return false
-			}
-			continue
+		if i%config.ChromeRestartNum == 0 {
+			w.resetChrome()
 		}
-		defer resp.Body.Close()
+		var timeStart time.Time
+		var htmbody string
+		// retry failed requests RetryNum times, restarting chrome if needed. TODO listen for ctx.cancel
+		for i := 0; i < config.RetryNum; i++ {
+			timeStart = time.Now()
+			htmbody, err = w.fetchBody(ctx, url)
+			if err == nil {
+				goto FetchEnd
+			} else {
+				w.logerr(fmt.Sprint("try: ", i, ", ", url, err.Error()))
+				if i == config.RetryNum-1 {
+					if w.conf.FailonError {
+						// log.Fatal(err)
+						w.logerr(err.Error())
+						return false
+					}
+					goto FetchCont
+				}
+
+				w.resetChrome()
+				log.Println("Sleeping for ", w.conf.SleepSec)
+				time.Sleep(time.Duration(w.conf.SleepSec * int(time.Second)))
+			}
+		}
+	FetchCont: // ignore fetch error and continue with next link
+		continue
+	FetchEnd: // fetch success.
 
 		dstHTMLFile, err := os.Create(dstfname)
 		if err != nil {
 			log.Fatal(err)
 		}
-		article, err := w.cleanHTML(resp.Body, dstHTMLFile, url, titlesfile)
+		article, err := w.cleanHTML(htmbody, dstHTMLFile, url, titlesfile)
 		if err != nil {
 			continue
 		}
+		dstHTMLFile.Close()
 
-		fmt.Fprintf(titlesfile, "%s\x00%s\x00%s\n", dstfname, article.Title, url)
+		if w.conf.FailonError && article.Length < w.conf.MinPageSize {
+			os.WriteFile(
+				path.Join(os.TempDir(), "emptyhtm"),
+				[]byte(htmbody), 0755)
+			os.WriteFile(
+				path.Join(os.TempDir(), "emptycontent"),
+				[]byte(article.Content), 0755)
+			w.logerr(fmt.Sprintf("Article length: %v less than required MinPageSize: %v ", article.Length, w.conf.MinPageSize))
+			os.Remove(dstfname)
+			return false
+		}
 
-		w.loginfo(fmt.Sprintf("Fetched article with %d characters. Sleeping for %d seconds ", article.Length, w.conf.SleepSec))
+		fmt.Fprintf(titlesfile, "%s\x00%s\x00%s\n", dstfname, urlToFname(article.Title), url)
+
+		sleeprand := w.conf.SleepSec/2 + rand.Intn(w.conf.SleepSec/2)
+		w.loginfo(fmt.Sprintf("Fetched article with %d characters in %v. Sleeping for %d seconds ", article.Length, time.Since(timeStart), sleeprand))
 		select {
-		case <-time.After(time.Duration(w.conf.SleepSec * int(time.Second))):
+		case <-time.After(time.Duration(sleeprand * int(time.Second))):
 			// nothing to do on normal timeout
 		case <-ctx.Done():
 			w.logerr("Stopping the process")
@@ -78,7 +119,7 @@ func (w *Worker) FetchStripUrls(ctx context.Context, urls []string) bool {
 func urlToFname(url string) string {
 	var out []rune
 	for _, ch := range url {
-		if unicode.IsLetter(ch) || unicode.IsNumber(ch) {
+		if unicode.IsLetter(ch) || unicode.IsNumber(ch) || ch == ' ' {
 			out = append(out, ch)
 		}
 	}
@@ -91,6 +132,7 @@ func (w *Worker) fetchUrl(ctx context.Context, url string) (*http.Response, erro
 		return nil, err
 	}
 	req.Header.Add("User-Agent", w.conf.UserAgent)
+	// req.Header.Add("Accept-Encoding", "gzip, deflate")
 	req = req.WithContext(ctx)
 
 	resp, err := w.client.Do(req)
@@ -105,36 +147,51 @@ func (w *Worker) fetchUrl(ctx context.Context, url string) (*http.Response, erro
 }
 
 // converts to readable html and fetches images if necessary
-func (w *Worker) cleanHTML(r io.ReadCloser, out io.Writer, url string, titlesfile io.Writer) (readability.Article, error) {
-
-	parser := readability.NewParser()
-	article, err := parser.Parse(r, url)
+func (w *Worker) cleanHTML(body string, out io.Writer, url string, titlesfile io.Writer) (readability.Article, error) {
+	r := bytes.NewBufferString(body)
+	netUrl, _ := nurl.ParseRequestURI(url)
+	article, err := readability.FromReader(r, netUrl)
 	if err != nil {
 		w.logerr("failed to parse ", url, err.Error())
 		return article, err
 	}
-	r.Close()
 
-	htm := article.Content
-	doc, err := html.Parse(strings.NewReader(htm))
-	if err != nil {
-		log.Println(err)
-	} else {
-		if w.conf.PreBreaks {
-			htm = addPreDivBreaks(doc)
-		}
-		if w.conf.IncludeImages {
-			htm = w.downloadImages(doc, titlesfile)
-		}
-
+	// Useful for epub pages with parsing issues"`
+	if w.conf.UseTextParser {
+		fmt.Fprintf(out, "<h4>%s</h4>", article.Title)
+		htm := article.TextContent
+		htm = strings.ReplaceAll(htm, "\n", "<br>")
+		out.Write([]byte(htm))
+		return article, nil
 	}
 
-	out.Write([]byte(htm))
+	htm := article.Content
+	htmb := []byte(htm)
+	if w.conf.PreBreaks || w.conf.IncludeImages {
+		doc, err := html.Parse(strings.NewReader(htm))
+		if err != nil {
+			log.Fatal(err)
+		} else {
+			if w.conf.PreBreaks {
+				htmb = addPreDivBreaks(doc)
+			}
+			if w.conf.IncludeImages {
+				htmb = w.downloadImages(doc, titlesfile)
+			}
+		}
+	}
+
+	// remove extra html>body tags added by html parser
+	htmb = bytes.TrimPrefix(htmb, []byte("<html><head></head><body>"))
+	htmb = bytes.TrimSuffix(htmb, []byte("</body></html>"))
+	// add title
+	out.Write([]byte(fmt.Sprintf("<h3>%s</h3>\n", article.Title)))
+	out.Write(htmb)
 	return article, nil
 }
 
 // adds <br> at the end of each line of <pre> block
-func addPreDivBreaks(doc *html.Node) string {
+func addPreDivBreaks(doc *html.Node) []byte {
 
 	preNodes := dom.GetElementsByTagName(doc, "pre")
 	for _, node := range preNodes {
@@ -148,11 +205,11 @@ func addPreDivBreaks(doc *html.Node) string {
 	if err != nil {
 		log.Println(err)
 	}
-	return b.String()
+	return b.Bytes()
 }
 
 // downloads images in doc(DOM), and updates src attribute to relative file path(../images/img.png)
-func (w *Worker) downloadImages(doc *html.Node, titlesfile io.Writer) string {
+func (w *Worker) downloadImages(doc *html.Node, titlesfile io.Writer) []byte {
 	preNodes := dom.GetElementsByTagName(doc, "img")
 	for _, node := range preNodes {
 		for _, attr := range node.Attr {
@@ -168,6 +225,9 @@ func (w *Worker) downloadImages(doc *html.Node, titlesfile io.Writer) string {
 				// set file extension from Content-Type
 				imgext := ""
 				ctype := resp.Header.Get("Content-Type")
+				if ctype != "image/png" && ctype != "image/jpg" && ctype != "image/jpeg" {
+					continue
+				}
 				if len(ctype) > 6 && ctype[:6] == "image/" {
 					imgext = "." + ctype[6:]
 				}
@@ -188,7 +248,7 @@ func (w *Worker) downloadImages(doc *html.Node, titlesfile io.Writer) string {
 	if err != nil {
 		log.Println(err)
 	}
-	return b.String()
+	return b.Bytes()
 }
 
 func writefile(fname string, r io.ReadCloser) error {
@@ -199,4 +259,21 @@ func writefile(fname string, r io.ReadCloser) error {
 	}
 	_, err = io.Copy(f, r)
 	return err
+}
+
+func (w *Worker) fetchBody(ctx context.Context, url string) (string, error) {
+	if w.conf.ChromeDownload {
+		return w.FetchUrlChrome(url)
+	}
+
+	resp, err := w.fetchUrl(ctx, url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	htmbody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return string(htmbody), nil
 }

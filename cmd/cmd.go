@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
 
 	"github.com/raviraa/htmltoebook/config"
@@ -25,8 +26,13 @@ https://blog.golang.org/go1.16
 `
 
 func RunLinks(linksmsg string) {
-	linksmsg = Linksmsg + linksmsg
-	if err := writeEditorFile(*config.New(), linksmsg); err != nil {
+	confinit := config.New()
+	if confinit.Links != "" {
+		linksmsg = confinit.Links + linksmsg
+	} else {
+		linksmsg = Linksmsg + linksmsg
+	}
+	if err := writeEditorFile(*confinit, linksmsg); err != nil {
 		log.Fatal("failed generating links template. ", err)
 	}
 	for {
@@ -40,6 +46,7 @@ func RunLinks(linksmsg string) {
 			return
 		}
 		links := worker.SplitLinks(linkslines)
+		conf.Links = strings.TrimLeft(linkslines, "\n")
 		conf.WriteConf()
 		startWorker(conf, links)
 		break
@@ -109,6 +116,17 @@ func startWorker(c *config.ConfigType, links []string) {
 	log.Printf("Starting with %v links\n", len(links))
 	wdone := make(chan bool)
 	w := worker.New(nil, wdone, c)
-	w.StartWorker(context.Background(), links)
+	ctx, cancelWorker := context.WithCancel(context.Background())
+	w.StartWorker(ctx, links)
+
+	go func() {
+		sigint := make(chan os.Signal, 1)
+		signal.Notify(sigint, os.Interrupt)
+		signal.Notify(sigint, os.Kill)
+
+		<-sigint
+		cancelWorker()
+	}()
+
 	<-wdone
 }
